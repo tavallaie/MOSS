@@ -1,0 +1,18 @@
+[project]
+name = "moss"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "alembic>=1.15.2",
+    "celery>=5.3.6",
+    "concurrent-log-handler>=0.9.23",
+    "fastapi>=0.115.12",
+    "networkx>=3.0",
+    "psycopg-binary>=3.2.8",
+    "python-dotenv>=1.1.0",
+    "python-louvain>=0.16",
+    "redis>=5.0.4",
+    "requests>=2.32.3",
+    "sqlalchemy>=2.0.40",
+    "uvicorn[standard]>=0.34.2",
+]
