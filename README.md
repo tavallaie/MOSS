@@ -49,7 +49,8 @@ The system uses a FastAPI web framework for its API, PostgreSQL as the database,
  Before you begin, ensure you have the following installed on your system:
 
  1.  **Python:** Version 3.10 or higher is recommended. [Download Python](https://www.python.org/downloads/)
- 2.  **pip:** Python's package installer (usually comes with Python).
+ 2.  **uv:** Python's package installer, follow [this instrauction](https://docs.astral.sh/uv/#installation) to install.
+ use `uv sync` for install dependencies.
  3.  **Git:** For cloning the repository. [Download Git](https://git-scm.com/downloads)
  4.  **PostgreSQL:** A running PostgreSQL database server (version 12+ recommended). You'll need the ability to create a database and a user. [Download PostgreSQL](https://www.postgresql.org/download/)
  5.  **Redis:** A running Redis server. Celery uses this to manage background tasks. [Download Redis](https://redis.io/docs/getting-started/installation/) or use Docker.
