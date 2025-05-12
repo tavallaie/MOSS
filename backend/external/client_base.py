@@ -12,13 +12,14 @@ import time
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from typing import Optional, Dict, Any, Tuple, List, Union # Added Union
+from typing import Optional, Dict, Any, Tuple, List, Union  # Added Union
 
 # Ensure settings are imported to access config like OPENALEX_EMAIL
 # This also ensures dotenv is loaded if settings module does it
 from backend.config.settings import settings
 
 logger = logging.getLogger(__name__)
+
 
 # --- Custom Exception Classes ---
 class ApiClientError(Exception):
@@ -30,9 +31,11 @@ class ApiClientError(Exception):
     request. It may optionally include the HTTP status code if the error
     originated from an HTTP response.
     """
+
     def __init__(self, message: str, status_code: Optional[int] = None):
         super().__init__(message)
         self.status_code = status_code
+
 
 class RateLimitError(ApiClientError):
     """
@@ -43,6 +46,7 @@ class RateLimitError(ApiClientError):
         retry_after: The suggested wait time in seconds provided by the
                      API's 'Retry-After' header, if available.
     """
+
     def __init__(self, message: str, retry_after: Optional[int] = None):
         super().__init__(message, status_code=429)
         self.retry_after = retry_after
@@ -62,14 +66,15 @@ class ClientBase:
     Subclasses should inherit from `ClientBase` to leverage this common
     infrastructure for interacting with specific external APIs.
     """
+
     def __init__(
         self,
         base_url: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
-        timeout: Union[float, Tuple[float, float]] = (10, 30), # connect, read
-        retries: int = 3, # Retries for connection/server errors
+        timeout: Union[float, Tuple[float, float]] = (10, 30),  # connect, read
+        retries: int = 3,  # Retries for connection/server errors
         backoff_factor: float = 0.5,
-        status_forcelist: Optional[List[int]] = None
+        status_forcelist: Optional[List[int]] = None,
     ):
         """
         Initializes the base client and its session.
@@ -96,8 +101,8 @@ class ClientBase:
                               [500, 502, 503, 504].
         """
         # Base URL is optional now, can be provided per request or rely on endpoint being full URL
-        self.base_url = base_url.rstrip('/') if base_url else None
-        self.settings = settings # Access loaded settings instance
+        self.base_url = base_url.rstrip("/") if base_url else None
+        self.settings = settings  # Access loaded settings instance
         self.default_timeout = timeout
         self.default_headers = {
             "User-Agent": f"MOSS Bot (Map of Open Source Science; mailto:{self.settings.OPENALEX_EMAIL or 'not-set'}) / Python Requests",
@@ -106,17 +111,29 @@ class ClientBase:
             self.default_headers.update(headers)
 
         # Configure retries for connection/server errors (NOT 429)
-        self.status_forcelist = status_forcelist if status_forcelist is not None else [500, 502, 503, 504]
+        self.status_forcelist = (
+            status_forcelist if status_forcelist is not None else [500, 502, 503, 504]
+        )
         self.retries_config = Retry(
             total=retries,
             backoff_factor=backoff_factor,
             status_forcelist=self.status_forcelist,
-            allowed_methods=["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"], # Retry on these methods for server errors
-            respect_retry_after_header=True # Good practice for non-429 retries
+            allowed_methods=[
+                "HEAD",
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+            ],  # Retry on these methods for server errors
+            respect_retry_after_header=True,  # Good practice for non-429 retries
         )
 
         self.session = self._create_session()
-        logger.info(f"{self.__class__.__name__} initialized for base URL: {self.base_url or 'Not Set'}")
+        logger.info(
+            f"{self.__class__.__name__} initialized for base URL: {self.base_url or 'Not Set'}"
+        )
 
     def _create_session(self) -> requests.Session:
         """
@@ -134,7 +151,9 @@ class ClientBase:
         session.mount("https://", adapter)
         session.mount("http://", adapter)
         session.headers.update(self.default_headers)
-        logger.debug(f"Requests session created with non-429 retry strategy for {self.__class__.__name__}.")
+        logger.debug(
+            f"Requests session created with non-429 retry strategy for {self.__class__.__name__}."
+        )
         return session
 
     def _request(
@@ -142,11 +161,11 @@ class ClientBase:
         method: str,
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None, # For form data
-        json: Optional[Dict[str, Any]] = None, # For JSON body
+        data: Optional[Dict[str, Any]] = None,  # For form data
+        json: Optional[Dict[str, Any]] = None,  # For JSON body
         headers: Optional[Dict[str, str]] = None,
         timeout: Optional[Union[float, Tuple[float, float]]] = None,
-        **kwargs  # Allow passing extra arguments like 'files'
+        **kwargs,  # Allow passing extra arguments like 'files'
     ) -> requests.Response:
         """
         Executes an HTTP request with integrated retry logic for rate limits.
@@ -202,16 +221,19 @@ class ClientBase:
             request_headers.update(headers)
 
         # --- Rate Limit Handling Configuration ---
-        MAX_429_RETRIES = 4 # Limit how many times *we* retry on 429 internally
-        INITIAL_429_DELAY = 3 # Initial delay (seconds) after a 429 if no Retry-After
-        MAX_429_WAIT = 60   # Maximum wait time (seconds) for a single 429 retry delay
+        MAX_429_RETRIES = 4  # Limit how many times *we* retry on 429 internally
+        INITIAL_429_DELAY = 3  # Initial delay (seconds) after a 429 if no Retry-After
+        MAX_429_WAIT = 60  # Maximum wait time (seconds) for a single 429 retry delay
         # --- End Rate Limit Configuration ---
 
-        last_exception: Optional[Exception] = None # Store the last exception encountered
+        last_exception: Optional[Exception] = (
+            None  # Store the last exception encountered
+        )
 
         for attempt in range(MAX_429_RETRIES + 1):
-            logger.debug(f"Attempt {attempt+1}: {method.upper()} {full_url}")
-            if params: logger.debug(f"Params: {params}")
+            logger.debug(f"Attempt {attempt + 1}: {method.upper()} {full_url}")
+            if params:
+                logger.debug(f"Params: {params}")
 
             try:
                 response = self.session.request(
@@ -222,7 +244,7 @@ class ClientBase:
                     json=json,
                     headers=request_headers,
                     timeout=request_timeout,
-                    **kwargs
+                    **kwargs,
                 )
 
                 # --- Specific 429 Rate Limit Handling ---
@@ -230,7 +252,7 @@ class ClientBase:
                     if attempt < MAX_429_RETRIES:
                         retry_after_str = response.headers.get("Retry-After")
                         # Default wait is exponential backoff
-                        wait_time = INITIAL_429_DELAY * (2 ** attempt)
+                        wait_time = INITIAL_429_DELAY * (2**attempt)
 
                         if retry_after_str:
                             try:
@@ -238,9 +260,13 @@ class ClientBase:
                                 wait_time_header = int(retry_after_str)
                                 # Use the header value if it's longer than backoff, add buffer
                                 wait_time = max(wait_time, wait_time_header) + 1
-                                logger.info(f"Rate limit hit. Respecting Retry-After: {wait_time_header}s. Waiting ~{wait_time}s.")
+                                logger.info(
+                                    f"Rate limit hit. Respecting Retry-After: {wait_time_header}s. Waiting ~{wait_time}s."
+                                )
                             except (ValueError, TypeError):
-                                logger.warning(f"Could not parse Retry-After header: '{retry_after_str}'. Using exponential backoff ({wait_time:.2f}s).")
+                                logger.warning(
+                                    f"Could not parse Retry-After header: '{retry_after_str}'. Using exponential backoff ({wait_time:.2f}s)."
+                                )
 
                         # Cap the wait time to avoid excessively long waits
                         wait_time = min(wait_time, MAX_429_WAIT)
@@ -251,24 +277,30 @@ class ClientBase:
                         )
                         time.sleep(wait_time)
                         # Store a dummy exception to indicate a retry occurred
-                        last_exception = requests.exceptions.RetryError(f"Rate limited on attempt {attempt+1}")
-                        continue # Proceed to the next attempt in the 429 retry loop
+                        last_exception = requests.exceptions.RetryError(
+                            f"Rate limited on attempt {attempt + 1}"
+                        )
+                        continue  # Proceed to the next attempt in the 429 retry loop
                     else:
                         # Exceeded internal retries specifically for 429 errors
-                        logger.error(f"Rate limit hit ({response.status_code}) on {method.upper()} {full_url} and exceeded internal retry limit ({MAX_429_RETRIES}). Raising error.")
+                        logger.error(
+                            f"Rate limit hit ({response.status_code}) on {method.upper()} {full_url} and exceeded internal retry limit ({MAX_429_RETRIES}). Raising error."
+                        )
                         # Use raise_for_status() to create an HTTPError, which will be caught below
                         response.raise_for_status()
 
                 # If not 429, return the response immediately.
                 # The caller should check response.ok or response.status_code.
                 if response.ok:
-                    logger.debug(f"Request successful: {response.status_code} {method.upper()} {full_url}")
+                    logger.debug(
+                        f"Request successful: {response.status_code} {method.upper()} {full_url}"
+                    )
                 else:
-                     # Log non-429 client/server errors handled by the caller
-                     logger.warning(
+                    # Log non-429 client/server errors handled by the caller
+                    logger.warning(
                         f"Request returned non-success status (non-429): {response.status_code} {method.upper()} {full_url}. "
                         f"Response snippet: {response.text[:200]}"
-                     )
+                    )
                 # Return the response regardless of non-429 status code; caller decides how to handle.
                 return response
 
@@ -277,24 +309,30 @@ class ClientBase:
                 # 1. Connection errors, timeouts etc., *after* the session's
                 #    Retry mechanism (configured by self.retries_config) is exhausted.
                 # 2. The HTTPError explicitly raised above if MAX_429_RETRIES was exceeded.
-                logger.error(f"Request failed for {method.upper()} {full_url} after all retries (Session or internal 429): {e}", exc_info=False) # Log only message unless debugging
-                logger.debug(f"Underlying exception detail for failed request:", exc_info=True) # Full trace on debug
-                last_exception = e # Store the actual exception
+                logger.error(
+                    f"Request failed for {method.upper()} {full_url} after all retries (Session or internal 429): {e}",
+                    exc_info=False,
+                )  # Log only message unless debugging
+                logger.debug(
+                    "Underlying exception detail for failed request:", exc_info=True
+                )  # Full trace on debug
+                last_exception = e  # Store the actual exception
                 # Break the loop, we will raise ApiClientError outside based on last_exception
                 break
             except Exception as e:
                 # Catch any other unexpected errors during request setup or execution
-                logger.exception(f"Unexpected error during request: {method.upper()} {full_url}")
+                logger.exception(
+                    f"Unexpected error during request: {method.upper()} {full_url}"
+                )
                 last_exception = e
-                break # Exit loop on unexpected error
+                break  # Exit loop on unexpected error
 
         # If the loop completed without returning a response (i.e., hit break after an exception)
         # Raise a consistent ApiClientError, wrapping the last encountered exception.
         err_msg = f"Request failed for {method.upper()} {full_url} after all retries: {last_exception}"
-        status_code = getattr(last_exception, 'response', None)
-        status_code = getattr(status_code, 'status_code', None) if status_code else None
+        status_code = getattr(last_exception, "response", None)
+        status_code = getattr(status_code, "status_code", None) if status_code else None
         raise ApiClientError(err_msg, status_code=status_code) from last_exception
-
 
     def _construct_url(self, endpoint: str) -> str:
         """
@@ -313,16 +351,22 @@ class ClientBase:
         Raises:
             ValueError: If the endpoint is relative and `base_url` is not set.
         """
-        if endpoint.lower().startswith(('http://', 'https://')):
+        if endpoint.lower().startswith(("http://", "https://")):
             return endpoint
         if not self.base_url:
-             logger.error(f"Cannot construct full URL for relative endpoint '{endpoint}' because client base_url is not configured.")
-             raise ValueError(f"Endpoint '{endpoint}' is not a full URL and no base_url is configured for this client.")
+            logger.error(
+                f"Cannot construct full URL for relative endpoint '{endpoint}' because client base_url is not configured."
+            )
+            raise ValueError(
+                f"Endpoint '{endpoint}' is not a full URL and no base_url is configured for this client."
+            )
         # Ensure there's exactly one slash between base_url and endpoint
         return f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
     # --- Convenience Methods ---
-    def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, **kwargs) -> requests.Response:
+    def get(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None, **kwargs
+    ) -> requests.Response:
         """
         Performs an HTTP GET request.
 
@@ -339,7 +383,13 @@ class ClientBase:
         """
         return self._request("GET", endpoint, params=params, **kwargs)
 
-    def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None, json: Optional[Dict[str, Any]] = None, **kwargs) -> requests.Response:
+    def post(
+        self,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        json: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> requests.Response:
         """
         Performs an HTTP POST request.
 

@@ -17,14 +17,16 @@ This module handles:
 
 import logging
 from celery import Celery
+
 # Import Celery signals for hooking into its logging setup process.
 from celery.signals import setup_logging as setup_celery_logging_signal
+
 # Import custom logging setup functions and handlers.
 from backend.config.logging_config import (
     setup_logging,
-    ConcurrentRotatingFileHandler, # Process-safe handler (if available).
-    RotatingFileHandler,           # Standard library fallback handler.
-    CONCURRENT_HANDLER_AVAILABLE   # Flag indicating which handler is used.
+    ConcurrentRotatingFileHandler,  # Process-safe handler (if available).
+    RotatingFileHandler,  # Standard library fallback handler.
+    CONCURRENT_HANDLER_AVAILABLE,  # Flag indicating which handler is used.
 )
 
 # Import application settings to access configuration values like broker URLs.
@@ -58,7 +60,7 @@ else:
 # Logs for Celery workers will be directed to 'moss_celery.log'.
 setup_logging(
     log_file_name="moss_celery.log",
-    handler_class=celery_handler_class # Pass the chosen handler class.
+    handler_class=celery_handler_class,  # Pass the chosen handler class.
 )
 
 # Obtain the application's logger instance *after* the setup is complete.
@@ -79,39 +81,41 @@ def configure_celery_logging(**kwargs):
     its own log handlers and ensuring our custom setup via `setup_logging`
     persists.
     """
-    logger.info("Celery 'setup_logging' signal intercepted. Skipping Celery's default logger setup.")
+    logger.info(
+        "Celery 'setup_logging' signal intercepted. Skipping Celery's default logger setup."
+    )
     pass
+
+
 # --- End Signal Handler ---
 
 
 # --- Initialize Celery Application ---
 # Create the Celery application instance.
 celery_app = Celery(
-    __name__,                   # Use the current module name as the app name.
-    broker=settings.CELERY_BROKER_URL,        # URL for the message broker (e.g., Redis, RabbitMQ).
-    backend=settings.CELERY_RESULT_BACKEND_URL, # URL for storing task results.
+    __name__,  # Use the current module name as the app name.
+    broker=settings.CELERY_BROKER_URL,  # URL for the message broker (e.g., Redis, RabbitMQ).
+    backend=settings.CELERY_RESULT_BACKEND_URL,  # URL for storing task results.
     # List of modules Celery should inspect to discover task definitions.
     include=[
-        'backend.tasks.scholarly_tasks',    # Tasks related to scholarly data processing.
-        'backend.tasks.discovery_tasks',    # Tasks related to repository/keyword discovery.
+        "backend.tasks.scholarly_tasks",  # Tasks related to scholarly data processing.
+        "backend.tasks.discovery_tasks",  # Tasks related to repository/keyword discovery.
         # Add other modules containing Celery tasks here.
-    ]
+    ],
 )
 
 # --- Apply Celery Configuration ---
 # Update the Celery application configuration with specific settings.
 celery_app.conf.update(
-    task_serializer='json',        # Use JSON for serializing task messages.
-    accept_content=['json'],       # Only accept JSON-formatted task messages.
-    result_serializer='json',      # Use JSON for serializing task results.
-    timezone='UTC',                # Standardize on UTC for time-related operations.
-    enable_utc=True,               # Ensure UTC is enabled for scheduling and timestamps.
-    task_track_started=True,       # Record when a task begins execution (useful for monitoring).
-
+    task_serializer="json",  # Use JSON for serializing task messages.
+    accept_content=["json"],  # Only accept JSON-formatted task messages.
+    result_serializer="json",  # Use JSON for serializing task results.
+    timezone="UTC",  # Standardize on UTC for time-related operations.
+    enable_utc=True,  # Ensure UTC is enabled for scheduling and timestamps.
+    task_track_started=True,  # Record when a task begins execution (useful for monitoring).
     # Optional: Retry connecting to the broker on startup if it's not immediately available.
     # Useful in containerized environments where services might start in parallel.
     # broker_connection_retry_on_startup=True,
-
     # Note: Worker pool and concurrency are often configured via command-line arguments
     # (e.g., `celery -A ... worker -P eventlet -c 4`), but can be set here as defaults.
     # worker_concurrency=4,         # Example: Default number of concurrent worker processes/threads.

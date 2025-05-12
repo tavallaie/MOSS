@@ -7,25 +7,43 @@ database identifiers.
 """
 
 import logging
-from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import func, select
+from sqlalchemy.orm import Session, joinedload
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 
 # Internal dependencies for database access, schemas, repositories, and models
 from backend.api.deps import get_db_session
 from backend.schemas.responses import (
-    RepositoryResponse, OwnerResponse, ContributorResponse, WorkResponse,
-    PersonResponse, InstitutionResponse,
-    TopicSummary, SubfieldSummary, FieldSummary, DomainSummary, PrimaryTopicResponse
+    RepositoryResponse,
+    OwnerResponse,
+    ContributorResponse,
+    WorkResponse,
+    PersonResponse,
+    InstitutionResponse,
+    TopicSummary,
+    SubfieldSummary,
+    FieldSummary,
+    DomainSummary,
+    PrimaryTopicResponse,
 )
 from backend.data.repositories import (
-    RepositoryRepository, OwnerRepository, ContributorRepository, WorkRepository,
-    PersonRepository, InstitutionRepository
+    RepositoryRepository,
+    OwnerRepository,
+    ContributorRepository,
+    WorkRepository,
+    PersonRepository,
+    InstitutionRepository,
 )
 from backend.data.models import (
-    Work, WorkTopic, Topic, Subfield, Field, Domain,
-    Person, Institution, Contributor, Repository
+    Work,
+    WorkTopic,
+    Topic,
+    Subfield,
+    Field,
+    Person,
+    Institution,
+    Contributor,
+    Repository,
 )
 
 # Logger setup for this module
@@ -39,6 +57,7 @@ router = APIRouter()
 # These functions provide a standard way to fetch an entity by ID
 # or raise an HTTP 404 Not Found error if it doesn't exist.
 
+
 def _get_repository_or_404(db: Session, repo_id: int) -> Repository:
     """Fetches a Repository by ID or raises HTTP 404."""
     repo_repo = RepositoryRepository(db=db)
@@ -50,6 +69,7 @@ def _get_repository_or_404(db: Session, repo_id: int) -> Repository:
             detail=f"Repository with id {repo_id} not found",
         )
     return repository
+
 
 def _get_work_or_404(db: Session, work_id: int) -> Work:
     """Fetches a Work by ID or raises HTTP 404."""
@@ -65,6 +85,7 @@ def _get_work_or_404(db: Session, work_id: int) -> Work:
         )
     return work
 
+
 def _get_institution_or_404(db: Session, institution_id: int) -> Institution:
     """Fetches an Institution by ID or raises HTTP 404."""
     inst_repo = InstitutionRepository(db=db)
@@ -76,6 +97,7 @@ def _get_institution_or_404(db: Session, institution_id: int) -> Institution:
             detail=f"Institution with id {institution_id} not found",
         )
     return institution
+
 
 def _get_person_or_404(db: Session, person_id: int) -> Person:
     """Fetches a Person by ID or raises HTTP 404."""
@@ -89,6 +111,7 @@ def _get_person_or_404(db: Session, person_id: int) -> Person:
         )
     return person
 
+
 def _get_contributor_or_404(db: Session, contributor_id: int) -> Contributor:
     """Fetches a Contributor by ID or raises HTTP 404."""
     contrib_repo = ContributorRepository(db=db)
@@ -100,20 +123,20 @@ def _get_contributor_or_404(db: Session, contributor_id: int) -> Contributor:
             detail=f"Contributor with id {contributor_id} not found",
         )
     return contributor
+
+
 # --- End Helper Functions ---
 
 
 # --- Entity Retrieval Endpoints ---
 
+
 @router.get(
     "/repositories/{id}",
-    response_model=RepositoryResponse, # Use the detailed response model
-    summary="Get Repository by ID"
+    response_model=RepositoryResponse,  # Use the detailed response model
+    summary="Get Repository by ID",
 )
-def get_repository(
-    id: int,
-    db: Session = Depends(get_db_session)
-):
+def get_repository(id: int, db: Session = Depends(get_db_session)):
     """
     Retrieves detailed information for a specific repository using its
     internal database ID.
@@ -134,15 +157,9 @@ def get_repository(
     # FastAPI automatically maps the SQLAlchemy model to the Pydantic response model
     return repository
 
-@router.get(
-    "/owners/{id}",
-    response_model=OwnerResponse,
-    summary="Get Owner by ID"
-)
-def get_owner(
-    id: int,
-    db: Session = Depends(get_db_session)
-):
+
+@router.get("/owners/{id}", response_model=OwnerResponse, summary="Get Owner by ID")
+def get_owner(id: int, db: Session = Depends(get_db_session)):
     """
     Retrieves detailed information for a specific repository owner (User or Organization)
     using its internal database ID.
@@ -168,15 +185,13 @@ def get_owner(
         )
     return owner
 
+
 @router.get(
     "/contributors/{id}",
     response_model=ContributorResponse,
-    summary="Get Contributor by ID"
+    summary="Get Contributor by ID",
 )
-def get_contributor(
-    id: int,
-    db: Session = Depends(get_db_session)
-):
+def get_contributor(id: int, db: Session = Depends(get_db_session)):
     """
     Retrieves detailed information for a specific contributor (GitHub user linked
     to a repository) using its internal database ID.
@@ -196,16 +211,16 @@ def get_contributor(
     contributor = _get_contributor_or_404(db, id)
     return contributor
 
+
 # --- FINAL REVISED /works/{id} ENDPOINT ---
 @router.get(
     "/works/{id}",
-    response_model=WorkResponse, # Use the detailed Work response model
-    summary="Get Work by ID"
+    response_model=WorkResponse,  # Use the detailed Work response model
+    summary="Get Work by ID",
 )
 def get_work(
-    id: int,
-    db: Session = Depends(get_db_session)
-) -> WorkResponse: # Explicitly type hint the return as the Pydantic model for clarity
+    id: int, db: Session = Depends(get_db_session)
+) -> WorkResponse:  # Explicitly type hint the return as the Pydantic model for clarity
     """
     Retrieves detailed information for a specific scholarly work by its internal
     database ID. This includes the work's metadata, its primary topic (with its
@@ -240,7 +255,9 @@ def get_work(
     # Step 2: Initialize structures to hold topic information
     primary_topic_response: Optional[PrimaryTopicResponse] = None
     topic_summaries: List[TopicSummary] = []
-    processed_topic_ids: set[int] = set() # Track processed topics to avoid duplicates if needed
+    processed_topic_ids: set[int] = (
+        set()
+    )  # Track processed topics to avoid duplicates if needed
 
     try:
         # Step 2a: Query for all WorkTopic associations for this work.
@@ -261,11 +278,11 @@ def get_work(
             # Filter for the specific work ID
             .filter(WorkTopic.work_id == id)
         )
-        work_topic_associations = work_topic_query.all() # Execute the query
+        work_topic_associations = work_topic_query.all()  # Execute the query
 
         # Step 3: Process the fetched associations to build the response structure
         for wt in work_topic_associations:
-            topic = wt.topic # The actual Topic object
+            topic = wt.topic  # The actual Topic object
             # Ensure the topic exists and hasn't been processed already
             if topic and topic.id not in processed_topic_ids:
                 processed_topic_ids.add(topic.id)
@@ -287,28 +304,37 @@ def get_work(
                         # Build summaries for each level of the hierarchy if they exist
                         if topic.subfield:
                             # Validate each level against its Pydantic summary model
-                            subfield_summary = SubfieldSummary.model_validate(topic.subfield)
+                            subfield_summary = SubfieldSummary.model_validate(
+                                topic.subfield
+                            )
                             if topic.subfield.field:
-                                field_summary = FieldSummary.model_validate(topic.subfield.field)
+                                field_summary = FieldSummary.model_validate(
+                                    topic.subfield.field
+                                )
                                 if topic.subfield.field.domain:
-                                    domain_summary = DomainSummary.model_validate(topic.subfield.field.domain)
+                                    domain_summary = DomainSummary.model_validate(
+                                        topic.subfield.field.domain
+                                    )
 
                         # Construct the PrimaryTopicResponse using the validated topic summary
                         # and the hierarchy summaries. Include the score from the association.
                         primary_topic_response = PrimaryTopicResponse(
-                            id=topic_summary.id,                # From validated summary
-                            openalex_id=topic_summary.openalex_id, # From validated summary
-                            display_name=topic_summary.display_name, # From validated summary
-                            created_at=topic_summary.created_at, # From validated summary
-                            updated_at=topic_summary.updated_at, # From validated summary
-                            score=wt.score,                     # Score from the WorkTopic link
-                            subfield=subfield_summary,          # Populated if exists
-                            field=field_summary,                # Populated if exists
-                            domain=domain_summary               # Populated if exists
+                            id=topic_summary.id,  # From validated summary
+                            openalex_id=topic_summary.openalex_id,  # From validated summary
+                            display_name=topic_summary.display_name,  # From validated summary
+                            created_at=topic_summary.created_at,  # From validated summary
+                            updated_at=topic_summary.updated_at,  # From validated summary
+                            score=wt.score,  # Score from the WorkTopic link
+                            subfield=subfield_summary,  # Populated if exists
+                            field=field_summary,  # Populated if exists
+                            domain=domain_summary,  # Populated if exists
                         )
                 except Exception as e:
                     # Log errors during processing/validation of a single topic, but continue
-                    logger.error(f"Error processing/validating topic {getattr(topic, 'id', 'N/A')} for work {id}: {e}", exc_info=True)
+                    logger.error(
+                        f"Error processing/validating topic {getattr(topic, 'id', 'N/A')} for work {id}: {e}",
+                        exc_info=True,
+                    )
                     # Decide whether to raise, skip, or partially include data based on requirements
 
     except Exception as e:
@@ -316,7 +342,7 @@ def get_work(
         logger.exception(f"Database error fetching topic data for work {id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve associated topic data for the work."
+            detail="Failed to retrieve associated topic data for the work.",
         )
 
     # Step 4: Manually construct the dictionary for the final WorkResponse.
@@ -335,10 +361,11 @@ def get_work(
         "host_venue_display_name": work.host_venue_display_name,
         "openalex_url": work.openalex_url,
         # Add the processed topic data
-        "primary_topic": primary_topic_response, # Populated if a primary topic was found
-        "topics": topic_summaries if topic_summaries else None # List of all topic summaries, or None if empty
+        "primary_topic": primary_topic_response,  # Populated if a primary topic was found
+        "topics": topic_summaries
+        if topic_summaries
+        else None,  # List of all topic summaries, or None if empty
     }
-
 
     # Step 5: Validate the constructed dictionary against the WorkResponse Pydantic model.
     # This ensures the final structure matches the defined schema before returning.
@@ -351,20 +378,15 @@ def get_work(
         logger.exception(f"Error validating final WorkResponse data for work {id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to format the final work data into the expected response structure."
+            detail="Failed to format the final work data into the expected response structure.",
         )
+
+
 # --- END FINAL REVISED ENDPOINT ---
 
 
-@router.get(
-    "/persons/{id}",
-    response_model=PersonResponse,
-    summary="Get Person by ID"
-)
-def get_person(
-    id: int,
-    db: Session = Depends(get_db_session)
-):
+@router.get("/persons/{id}", response_model=PersonResponse, summary="Get Person by ID")
+def get_person(id: int, db: Session = Depends(get_db_session)):
     """
     Retrieves detailed information for a specific person (author/researcher)
     using their internal database ID.
@@ -384,15 +406,13 @@ def get_person(
     person = _get_person_or_404(db, id)
     return person
 
+
 @router.get(
     "/institutions/{id}",
     response_model=InstitutionResponse,
-    summary="Get Institution by ID"
+    summary="Get Institution by ID",
 )
-def get_institution(
-    id: int,
-    db: Session = Depends(get_db_session)
-):
+def get_institution(id: int, db: Session = Depends(get_db_session)):
     """
     Retrieves detailed information for a specific institution using its
     internal database ID.

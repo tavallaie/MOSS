@@ -6,7 +6,7 @@ from .doi_processing_service import DOIProcessingService
 from .ingestion_service import IngestionService
 from .keyword_discovery_service import KeywordDiscoveryService
 from .scholarly_processing_service import ScholarlyProcessingService
-from .surfacing_service import SurfacingService # <-- ADD THIS IMPORT
+from .surfacing_service import SurfacingService  # <-- ADD THIS IMPORT
 
 __all__ = [
     "BaseService",
@@ -15,5 +15,5 @@ __all__ = [
     "IngestionService",
     "KeywordDiscoveryService",
     "ScholarlyProcessingService",
-    "SurfacingService", # <-- ADD THIS TO LIST
+    "SurfacingService",  # <-- ADD THIS TO LIST
 ]

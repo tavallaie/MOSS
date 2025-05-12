@@ -11,12 +11,13 @@ import logging
 from typing import Optional, Dict, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError # General SQLAlchemy exception
+from sqlalchemy.exc import SQLAlchemyError  # General SQLAlchemy exception
 
 from .base_repository import BaseRepository
-from backend.data.models import Topic # The specific SQLAlchemy model
+from backend.data.models import Topic  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class TopicRepository(BaseRepository[Topic]):
     """
@@ -53,13 +54,22 @@ class TopicRepository(BaseRepository[Topic]):
         """
         logger.debug(f"Getting Topic by openalex_id: {openalex_id}")
         if not self.db.is_active:
-            logger.warning(f"Session is inactive in get_by_openalex_id for Topic OA ID {openalex_id}")
+            logger.warning(
+                f"Session is inactive in get_by_openalex_id for Topic OA ID {openalex_id}"
+            )
             return None
         try:
             # Standard query filtering by the unique OpenAlex ID.
-            return self.db.query(self.model).filter(self.model.openalex_id == openalex_id).first()
+            return (
+                self.db.query(self.model)
+                .filter(self.model.openalex_id == openalex_id)
+                .first()
+            )
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_by_openalex_id for Topic {openalex_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_by_openalex_id for Topic {openalex_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def get_or_create_by_openalex_id(
@@ -98,8 +108,12 @@ class TopicRepository(BaseRepository[Topic]):
         if not openalex_id:
             raise ValueError("openalex_id cannot be empty for Topic get_or_create")
         if not self.db.is_active:
-             logger.error("Session is inactive at start of get_or_create_by_openalex_id for Topic.")
-             raise RuntimeError("Database session is inactive, cannot perform get_or_create.")
+            logger.error(
+                "Session is inactive at start of get_or_create_by_openalex_id for Topic."
+            )
+            raise RuntimeError(
+                "Database session is inactive, cannot perform get_or_create."
+            )
 
         try:
             # --- Step 1: Query First ---
@@ -107,51 +121,78 @@ class TopicRepository(BaseRepository[Topic]):
 
             if db_obj:
                 # --- Step 2a: Record Found - Check for Updates ---
-                logger.debug(f"Found existing Topic OA ID {openalex_id} (DB ID: {db_obj.id}). Checking for updates.")
+                logger.debug(
+                    f"Found existing Topic OA ID {openalex_id} (DB ID: {db_obj.id}). Checking for updates."
+                )
                 updated = False
                 # Check and update display name if provided and different.
-                if obj_in_data.get('display_name') is not None and db_obj.display_name != obj_in_data.get('display_name'):
-                    db_obj.display_name = obj_in_data['display_name']
+                if obj_in_data.get(
+                    "display_name"
+                ) is not None and db_obj.display_name != obj_in_data.get(
+                    "display_name"
+                ):
+                    db_obj.display_name = obj_in_data["display_name"]
                     updated = True
                 # Check and update description if provided and different.
-                if obj_in_data.get('description') is not None and db_obj.description != obj_in_data.get('description'):
-                     db_obj.description = obj_in_data['description']
-                     updated = True
+                if obj_in_data.get(
+                    "description"
+                ) is not None and db_obj.description != obj_in_data.get("description"):
+                    db_obj.description = obj_in_data["description"]
+                    updated = True
                 # Check if the parent subfield_id needs updating.
-                new_subfield_id = obj_in_data.get('subfield_id')
-                if new_subfield_id is not None and db_obj.subfield_id != new_subfield_id:
-                     logger.warning(f"Topic OA ID {openalex_id} exists but subfield_id mismatch detected. "
-                                    f"DB has {db_obj.subfield_id}, input data has {new_subfield_id}. Updating.")
-                     db_obj.subfield_id = new_subfield_id
-                     updated = True
+                new_subfield_id = obj_in_data.get("subfield_id")
+                if (
+                    new_subfield_id is not None
+                    and db_obj.subfield_id != new_subfield_id
+                ):
+                    logger.warning(
+                        f"Topic OA ID {openalex_id} exists but subfield_id mismatch detected. "
+                        f"DB has {db_obj.subfield_id}, input data has {new_subfield_id}. Updating."
+                    )
+                    db_obj.subfield_id = new_subfield_id
+                    updated = True
                 # Add other field update checks here if needed...
 
                 if updated:
-                    self.db.add(db_obj) # Mark as dirty.
-                    logger.info(f"Topic {db_obj.id} marked for update in the current session.")
+                    self.db.add(db_obj)  # Mark as dirty.
+                    logger.info(
+                        f"Topic {db_obj.id} marked for update in the current session."
+                    )
                     # Optional: Flush and refresh if immediate state needed by caller.
                     # self.db.flush()
                     # self.db.refresh(db_obj)
-                return db_obj # Return the existing instance.
+                return db_obj  # Return the existing instance.
             else:
-                 # --- Step 2b: Record Not Found - Create New ---
-                logger.debug(f"Topic OA ID {openalex_id} not found. Preparing to create new.")
+                # --- Step 2b: Record Not Found - Create New ---
+                logger.debug(
+                    f"Topic OA ID {openalex_id} not found. Preparing to create new."
+                )
                 # CRITICAL: Ensure the foreign key `subfield_id` is present for creation.
-                if 'subfield_id' not in obj_in_data or obj_in_data['subfield_id'] is None:
-                     raise ValueError(f"Missing required 'subfield_id' in obj_in_data for creating new Topic with OA ID {openalex_id}")
+                if (
+                    "subfield_id" not in obj_in_data
+                    or obj_in_data["subfield_id"] is None
+                ):
+                    raise ValueError(
+                        f"Missing required 'subfield_id' in obj_in_data for creating new Topic with OA ID {openalex_id}"
+                    )
 
                 # Ensure openalex_id is part of the creation data.
                 obj_in_data["openalex_id"] = openalex_id
-                new_obj = self.model(**obj_in_data) # Create the instance.
-                self.db.add(new_obj) # Add to session.
+                new_obj = self.model(**obj_in_data)  # Create the instance.
+                self.db.add(new_obj)  # Add to session.
                 # Flush: Send INSERT, get PK, check constraints (including FK to subfield).
                 self.db.flush()
                 # Refresh: Update object with DB defaults.
                 self.db.refresh(new_obj)
-                logger.info(f"Successfully created and flushed new Topic OA ID {openalex_id} (DB ID: {new_obj.id})")
-                return new_obj # Return the new instance.
+                logger.info(
+                    f"Successfully created and flushed new Topic OA ID {openalex_id} (DB ID: {new_obj.id})"
+                )
+                return new_obj  # Return the new instance.
 
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_or_create for Topic OA ID {openalex_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_or_create for Topic OA ID {openalex_id}: {e}",
+                exc_info=True,
+            )
             # Caller handles rollback.
-            raise # Re-raise the caught exception.
+            raise  # Re-raise the caught exception.

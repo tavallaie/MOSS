@@ -8,10 +8,9 @@ for searching repositories and returns a list of their URLs.
 """
 
 import sys
-import os
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 
 # --- Path Setup ---
 # Determine the project root directory relative to this script's location
@@ -31,7 +30,7 @@ from backend.external import GitHubClient, ApiClientError
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)-5.5s] [discovery_kw_v1] - %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)]
+    handlers=[logging.StreamHandler(sys.stderr)],
 )
 logger = logging.getLogger(__name__)
 
@@ -39,9 +38,9 @@ logger = logging.getLogger(__name__)
 def find_candidate_repos(
     keywords: List[str],
     max_results: int = 100,
-    github_api_token: Optional[str] = None, # Allow passing a specific token
+    github_api_token: Optional[str] = None,  # Allow passing a specific token
     # db_conn_str is part of the standard runner signature but not used here.
-    db_conn_str: Optional[str] = None
+    db_conn_str: Optional[str] = None,
 ) -> List[str]:
     """
     Searches GitHub for repositories matching a given set of keywords.
@@ -69,14 +68,18 @@ def find_candidate_repos(
 
     # Construct the search query by joining keywords.
     query = " ".join(keywords)
-    logger.info(f"Starting GitHub discovery search with query: '{query}', max_results: {max_results}")
+    logger.info(
+        f"Starting GitHub discovery search with query: '{query}', max_results: {max_results}"
+    )
 
     # Instantiate the GitHub API client.
     # This might raise ValueError if base configuration (e.g., settings) is invalid.
     try:
         github_client = GitHubClient()
     except ValueError as e:
-        logger.error(f"Failed to initialize GitHubClient: {e}. Check base configuration or token availability.")
+        logger.error(
+            f"Failed to initialize GitHubClient: {e}. Check base configuration or token availability."
+        )
         # Cannot proceed without a client instance.
         return []
 
@@ -90,11 +93,12 @@ def find_candidate_repos(
     else:
         # If no specific token is provided, log a warning about rate limits.
         # Ensure anonymous request by removing any default Authorization header.
-        logger.warning("No GitHub API token provided to discovery algorithm. Search will be anonymous and heavily rate-limited.")
+        logger.warning(
+            "No GitHub API token provided to discovery algorithm. Search will be anonymous and heavily rate-limited."
+        )
         if "Authorization" in request_headers:
             del request_headers["Authorization"]
     # --- End Header Prep ---
-
 
     repo_urls: List[str] = []
     try:
@@ -110,7 +114,9 @@ def find_candidate_repos(
         # Temporarily update session headers with the prepared ones for this call.
         github_client.session.headers.update(request_headers)
         # Execute the search using the modified session headers.
-        search_result_tuple = github_client.search_repositories(query=query, max_results=max_results)
+        search_result_tuple = github_client.search_repositories(
+            query=query, max_results=max_results
+        )
         # Restore the original headers to avoid affecting subsequent uses of the client instance.
         github_client.session.headers = original_headers
         # --- END TEMPORARY WORKAROUND ---
@@ -123,23 +129,28 @@ def find_candidate_repos(
                 url = item.get("html_url")
                 if url:
                     repo_urls.append(url)
-            logger.info(f"Discovery search completed. Found {len(repo_urls)} candidate repository URLs.")
+            logger.info(
+                f"Discovery search completed. Found {len(repo_urls)} candidate repository URLs."
+            )
         else:
             # Handle cases where the API call succeeded but returned no items.
-            logger.warning("Repository search returned no results or failed to retrieve items.")
+            logger.warning(
+                "Repository search returned no results or failed to retrieve items."
+            )
 
     except ApiClientError as e:
         # Handle specific errors raised by the GitHub client (e.g., rate limits, auth errors).
         logger.error(f"API client error during GitHub discovery search: {e}")
         # Return empty list on client errors to indicate failure.
         return []
-    except Exception as e:
+    except Exception:
         # Catch any other unexpected exceptions during the process.
         logger.exception("Unexpected error during GitHub discovery search execution.")
         # Return empty list on unexpected errors.
         return []
 
     return repo_urls
+
 
 # --- Example Test Call Block ---
 # This section is intended for development or testing purposes.

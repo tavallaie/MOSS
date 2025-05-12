@@ -1,10 +1,9 @@
 # --- NEW FILE: contrib/queries/engaged_non_pr_contributors_v1.py ---
 
 import sys
-import os
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Set
 
 # --- Path Setup ---
 # Ensures the script can find backend modules when run by the executor
@@ -23,15 +22,12 @@ from backend.data.models import Contributor, PullRequest, Issue
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)-5.5s] [engaged_non_pr_v1] - %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)]
+    handlers=[logging.StreamHandler(sys.stderr)],
 )
 logger = logging.getLogger(__name__)
 
 
-def run_analysis(
-    db_conn_str: str,
-    repository_id: int
-) -> Dict[str, Any]:
+def run_analysis(db_conn_str: str, repository_id: int) -> Dict[str, Any]:
     """
     Identifies contributors who have created issues but not pull requests
     for a given repository, and counts their created issues.
@@ -47,7 +43,9 @@ def run_analysis(
                          ordered by issue count descending.
                          If error, data contains error details.
     """
-    logger.info(f"Starting engaged_non_pr_contributors_v1 analysis for repository_id={repository_id}")
+    logger.info(
+        f"Starting engaged_non_pr_contributors_v1 analysis for repository_id={repository_id}"
+    )
 
     engine = None
     db: Session | None = None
@@ -59,26 +57,30 @@ def run_analysis(
         db = SessionLocal()
 
         # Step 1: Find contributors who authored PRs for the repo
-        pr_authors_stmt = (
-            select(distinct(PullRequest.user_id))
-            .where(PullRequest.repository_id == repository_id)
+        pr_authors_stmt = select(distinct(PullRequest.user_id)).where(
+            PullRequest.repository_id == repository_id
         )
         pr_author_ids_result = db.execute(pr_authors_stmt).scalars().all()
         pr_author_ids: Set[int] = set(pr_author_ids_result)
-        logger.debug(f"Found {len(pr_author_ids)} distinct PR authors for repo {repository_id}.")
+        logger.debug(
+            f"Found {len(pr_author_ids)} distinct PR authors for repo {repository_id}."
+        )
 
         # Step 2: Find contributors who authored Issues for the repo
-        issue_authors_stmt = (
-            select(distinct(Issue.user_id))
-            .where(Issue.repository_id == repository_id)
+        issue_authors_stmt = select(distinct(Issue.user_id)).where(
+            Issue.repository_id == repository_id
         )
         issue_author_ids_result = db.execute(issue_authors_stmt).scalars().all()
         issue_author_ids: Set[int] = set(issue_author_ids_result)
-        logger.debug(f"Found {len(issue_author_ids)} distinct Issue authors for repo {repository_id}.")
+        logger.debug(
+            f"Found {len(issue_author_ids)} distinct Issue authors for repo {repository_id}."
+        )
 
         # Step 3: Find contributors in the second set but not the first
         non_pr_issue_author_ids = issue_author_ids - pr_author_ids
-        logger.info(f"Found {len(non_pr_issue_author_ids)} contributors who authored issues but not PRs.")
+        logger.info(
+            f"Found {len(non_pr_issue_author_ids)} contributors who authored issues but not PRs."
+        )
 
         if not non_pr_issue_author_ids:
             logger.info("No contributors found who only authored issues.")
@@ -88,12 +90,14 @@ def run_analysis(
         aggregation_stmt = (
             select(
                 Contributor.login.label("contributor_login"),
-                func.count(Issue.id).label("issue_count")
+                func.count(Issue.id).label("issue_count"),
             )
             .select_from(Contributor)
             .join(Issue, Contributor.id == Issue.user_id)
             .where(Contributor.id.in_(non_pr_issue_author_ids))
-            .where(Issue.repository_id == repository_id) # Ensure count is only for this repo
+            .where(
+                Issue.repository_id == repository_id
+            )  # Ensure count is only for this repo
             .group_by(Contributor.login)
             .order_by(desc("issue_count"))
         )
@@ -108,7 +112,10 @@ def run_analysis(
 
     except Exception as e:
         logger.exception(f"Error during engaged_non_pr_contributors_v1 execution: {e}")
-        return {"result_type": "error", "data": {"error": type(e).__name__, "message": str(e)}}
+        return {
+            "result_type": "error",
+            "data": {"error": type(e).__name__, "message": str(e)},
+        }
     finally:
         if db:
             db.close()

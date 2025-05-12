@@ -18,6 +18,7 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .repository import Repository
 
+
 class Contributor(BaseModel, Base):
     """
     Represents a GitHub User or Bot identified as a contributor.
@@ -39,13 +40,16 @@ class Contributor(BaseModel, Base):
                       Repositories they have contributed to, via the
                       'repository_contributors' association table.
     """
+
     __tablename__ = "contributors"
 
     # --- GitHub Identifiers and Details ---
     # Store key information directly retrieved from the GitHub API.
 
     # GitHub's unique ID for the user or bot. Indexed for fast lookups.
-    github_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
+    github_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
 
     # GitHub login username. Should be unique and indexed.
     login: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
@@ -55,8 +59,12 @@ class Contributor(BaseModel, Base):
 
     # Optional profile details from GitHub.
     avatar_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    html_url: Mapped[Optional[str]] = mapped_column(String, nullable=True) # Link to GitHub profile
-    api_url: Mapped[Optional[str]] = mapped_column(String, nullable=True) # Link to GitHub API endpoint
+    html_url: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True
+    )  # Link to GitHub profile
+    api_url: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True
+    )  # Link to GitHub API endpoint
 
     # --- Relationships ---
     # Define the many-to-many relationship to Repositories.
@@ -67,8 +75,8 @@ class Contributor(BaseModel, Base):
     # `back_populates` establishes the bidirectional link to the 'contributors'
     # attribute defined in the Repository model.
     repositories: Mapped[List["Repository"]] = relationship(
-        secondary="repository_contributors", # Name of the intermediary association table
-        back_populates="contributors" # Connects to Repository.contributors
+        secondary="repository_contributors",  # Name of the intermediary association table
+        back_populates="contributors",  # Connects to Repository.contributors
     )
 
     # --- Table Arguments ---
@@ -77,11 +85,11 @@ class Contributor(BaseModel, Base):
     __table_args__ = (
         # Explicitly create an index on the 'type' column for faster filtering
         # queries based on contributor type (e.g., finding all 'User' contributors).
-        Index('ix_contributors_type', 'type'),
+        Index("ix_contributors_type", "type"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Uses getattr for id in case the instance isn't flushed yet
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         return f"<Contributor(id={obj_id}, login='{self.login}', type='{self.type}')>"

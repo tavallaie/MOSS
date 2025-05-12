@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session
 
 # Import the actual database session generator and SessionLocal factory
 # from the data layer.
-from backend.data.database import SessionLocal, get_db
+from backend.data.database import get_db
 
 # Logger for this module
 logger = logging.getLogger(__name__)
+
 
 # --- Database Session Dependency ---
 def get_db_session() -> Generator[Session, None, None]:
@@ -39,6 +40,7 @@ def get_db_session() -> Generator[Session, None, None]:
     # Delegate the actual session lifecycle management (try/finally/close)
     # to the imported `get_db` generator function.
     yield from get_db()
+
 
 # --- Example Usage in an Endpoint ---
 #

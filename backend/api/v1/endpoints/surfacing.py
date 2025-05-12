@@ -15,23 +15,39 @@ from sqlalchemy.orm import Session
 
 # Internal dependencies for database access, schemas, services, repositories, and models
 from backend.api.deps import get_db_session
+
 # Import required Pydantic response schemas for surfacing results
 from backend.schemas.responses import (
-    WorkSummary, RepositorySummary, RepositoryCitationCountResponse,
-    PersonSummary, InstitutionSummary,
+    WorkSummary,
+    RepositorySummary,
+    RepositoryCitationCountResponse,
+    PersonSummary,
+    InstitutionSummary,
     AffiliationResultResponse,
-    ContributorResponse, # Used for shared contributor details
-    SoftwareDependencyResponse # Used for repository dependencies
+    ContributorResponse,  # Used for shared contributor details
+    SoftwareDependencyResponse,  # Used for repository dependencies
 )
+
 # Service layer containing the business logic for surfacing relationships
 from backend.services.surfacing_service import SurfacingService
+
 # Repositories are primarily used by helper functions for 404 checks
 from backend.data.repositories import (
-     RepositoryRepository, WorkRepository, InstitutionRepository, PersonRepository,
-     ContributorRepository # Needed for _get_contributor_or_404
+    RepositoryRepository,
+    WorkRepository,
+    InstitutionRepository,
+    PersonRepository,
+    ContributorRepository,  # Needed for _get_contributor_or_404
 )
+
 # Models needed for helper function type hints and potentially by the service
-from backend.data.models import Repository, Work, Institution, Person, Contributor, SoftwareDependency # Ensure Contributor is imported
+from backend.data.models import (
+    Repository,
+    Work,
+    Institution,
+    Person,
+    Contributor,
+)  # Ensure Contributor is imported
 
 # Logger setup for this module
 logger = logging.getLogger(__name__)
@@ -43,17 +59,21 @@ router = APIRouter()
 # These ensure that the primary entity ID provided in the path exists before
 # attempting to find related entities.
 
+
 def _get_repository_or_404(db: Session, repo_id: int) -> Repository:
     """Fetches a Repository by ID or raises HTTP 404."""
     repo_repo = RepositoryRepository(db=db)
     repository = repo_repo.get(id=repo_id)
     if not repository:
-        logger.warning(f"Repository with id {repo_id} not found for surfacing operation.")
+        logger.warning(
+            f"Repository with id {repo_id} not found for surfacing operation."
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Repository with id {repo_id} not found",
         )
     return repository
+
 
 def _get_work_or_404(db: Session, work_id: int) -> Work:
     """Fetches a Work by ID or raises HTTP 404."""
@@ -67,17 +87,21 @@ def _get_work_or_404(db: Session, work_id: int) -> Work:
         )
     return work
 
+
 def _get_institution_or_404(db: Session, institution_id: int) -> Institution:
     """Fetches an Institution by ID or raises HTTP 404."""
     inst_repo = InstitutionRepository(db=db)
     institution = inst_repo.get(id=institution_id)
     if not institution:
-        logger.warning(f"Institution with id {institution_id} not found for surfacing operation.")
+        logger.warning(
+            f"Institution with id {institution_id} not found for surfacing operation."
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Institution with id {institution_id} not found",
         )
     return institution
+
 
 def _get_person_or_404(db: Session, person_id: int) -> Person:
     """Fetches a Person by ID or raises HTTP 404."""
@@ -91,31 +115,37 @@ def _get_person_or_404(db: Session, person_id: int) -> Person:
         )
     return person
 
+
 def _get_contributor_or_404(db: Session, contributor_id: int) -> Contributor:
     """Fetches a Contributor by ID or raises HTTP 404."""
     contrib_repo = ContributorRepository(db=db)
     contributor = contrib_repo.get(id=contributor_id)
     if not contributor:
-        logger.warning(f"Contributor with id {contributor_id} not found for surfacing operation.")
+        logger.warning(
+            f"Contributor with id {contributor_id} not found for surfacing operation."
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Contributor with id {contributor_id} not found",
         )
     return contributor
+
+
 # --- End Helper Functions ---
 
 
 # --- Surfacing Endpoints ---
 
+
 @router.get(
     "/repositories/{repo_id}/works",
-    response_model=List[WorkSummary], # Returns summaries of related works
-    summary="Get Works associated with a Repository"
+    response_model=List[WorkSummary],  # Returns summaries of related works
+    summary="Get Works associated with a Repository",
 )
 def get_repository_works(
     repo_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject SurfacingService dependency
+    service: SurfacingService = Depends(),  # Inject SurfacingService dependency
 ):
     """
     Retrieves a list of scholarly works (summaries) that have been linked
@@ -134,7 +164,7 @@ def get_repository_works(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get works for repository ID {repo_id}")
-    _get_repository_or_404(db, repo_id) # Ensure repository exists
+    _get_repository_or_404(db, repo_id)  # Ensure repository exists
     try:
         # Delegate the core logic to the surfacing service
         works = service.get_works_for_repository(db=db, repository_id=repo_id)
@@ -144,18 +174,19 @@ def get_repository_works(
         logger.exception(f"Error retrieving works for repository {repo_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve associated works."
+            detail="Failed to retrieve associated works.",
         )
+
 
 @router.get(
     "/works/{work_id}/repositories",
-    response_model=List[RepositorySummary], # Returns summaries of related repositories
-    summary="Get Repositories associated with a Work"
+    response_model=List[RepositorySummary],  # Returns summaries of related repositories
+    summary="Get Repositories associated with a Work",
 )
 def get_work_repositories(
     work_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of repositories (summaries) that have been linked
@@ -174,7 +205,7 @@ def get_work_repositories(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get repositories for work ID {work_id}")
-    _get_work_or_404(db, work_id) # Ensure work exists
+    _get_work_or_404(db, work_id)  # Ensure work exists
     try:
         repositories = service.get_repositories_for_work(db=db, work_id=work_id)
         return repositories
@@ -182,18 +213,19 @@ def get_work_repositories(
         logger.exception(f"Error retrieving repositories for work {work_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve associated repositories."
+            detail="Failed to retrieve associated repositories.",
         )
+
 
 @router.get(
     "/works/{work_id}/citations",
-    response_model=List[WorkSummary], # Returns summaries of citing works
-    summary="Get Works citing a specific Work"
+    response_model=List[WorkSummary],  # Returns summaries of citing works
+    summary="Get Works citing a specific Work",
 )
 def get_work_citations(
     work_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of scholarly works (summaries) that cite the specified work ID.
@@ -212,7 +244,7 @@ def get_work_citations(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get citations for work ID {work_id}")
-    _get_work_or_404(db, work_id) # Ensure the cited work exists
+    _get_work_or_404(db, work_id)  # Ensure the cited work exists
     try:
         # Service method likely looks up citing works based on stored relationships
         citing_works = service.get_works_cited_by(db=db, work_id=work_id)
@@ -221,18 +253,19 @@ def get_work_citations(
         logger.exception(f"Error retrieving citations for work {work_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve citing works."
+            detail="Failed to retrieve citing works.",
         )
+
 
 @router.get(
     "/works/{work_id}/references",
-    response_model=List[WorkSummary], # Returns summaries of referenced works
-    summary="Get Works referenced by a specific Work"
+    response_model=List[WorkSummary],  # Returns summaries of referenced works
+    summary="Get Works referenced by a specific Work",
 )
 def get_work_references(
     work_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of scholarly works (summaries) that are referenced by
@@ -251,17 +284,20 @@ def get_work_references(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get references for work ID {work_id}")
-    _get_work_or_404(db, work_id) # Ensure the citing work exists
+    _get_work_or_404(db, work_id)  # Ensure the citing work exists
     try:
         # Service method likely looks up referenced works based on stored relationships
-        referenced_works = service.get_works_citing(db=db, work_id=work_id) # Note: Service method name might seem reversed but implies "works that this work cites"
+        referenced_works = service.get_works_citing(
+            db=db, work_id=work_id
+        )  # Note: Service method name might seem reversed but implies "works that this work cites"
         return referenced_works
     except Exception as e:
         logger.exception(f"Error retrieving references for work {work_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve referenced works."
+            detail="Failed to retrieve referenced works.",
         )
+
 
 @router.get(
     "/repositories/{repo_id}/citation_count",
@@ -271,12 +307,12 @@ def get_work_references(
         "Retrieves citation metrics for a repository: "
         "1. `aggregated_citation_count`: Sum of 'cited_by_count' from OpenAlex for all works linked to the repository. "
         "2. `discovered_citation_count`: Count of unique citing works found within the MOSS database itself that cite any work linked to the repository."
-    )
+    ),
 )
 def get_repository_citation_counts(
     repo_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Calculates and retrieves citation counts for a given repository. This includes
@@ -297,27 +333,30 @@ def get_repository_citation_counts(
                        500 if an error occurs during calculation.
     """
     logger.info(f"Request received: Get citation counts for repository ID {repo_id}")
-    _get_repository_or_404(db, repo_id) # Ensure repository exists
+    _get_repository_or_404(db, repo_id)  # Ensure repository exists
     try:
-        citation_counts_dict = service.get_repository_aggregated_citations(db=db, repository_id=repo_id)
+        citation_counts_dict = service.get_repository_aggregated_citations(
+            db=db, repository_id=repo_id
+        )
         # The service returns a dictionary suitable for the response model
         return citation_counts_dict
     except Exception as e:
         logger.exception(f"Error calculating citation counts for repo {repo_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to calculate citation counts."
+            detail="Failed to calculate citation counts.",
         )
+
 
 @router.get(
     "/repositories/{repo_id}/shared_contributors",
-    response_model=List[RepositorySummary], # Returns summaries of related repositories
-    summary="Get Repositories sharing Contributors"
+    response_model=List[RepositorySummary],  # Returns summaries of related repositories
+    summary="Get Repositories sharing Contributors",
 )
 def get_shared_contributors_repositories(
     repo_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of other repositories (summaries) that share at least one
@@ -336,29 +375,36 @@ def get_shared_contributors_repositories(
         HTTPException: 404 if the repository ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get repositories sharing contributors with repo ID {repo_id}")
-    _get_repository_or_404(db, repo_id) # Ensure source repository exists
+    logger.info(
+        f"Request received: Get repositories sharing contributors with repo ID {repo_id}"
+    )
+    _get_repository_or_404(db, repo_id)  # Ensure source repository exists
     try:
-        shared_repos = service.get_repositories_sharing_contributors(db=db, repository_id=repo_id)
+        shared_repos = service.get_repositories_sharing_contributors(
+            db=db, repository_id=repo_id
+        )
         return shared_repos
     except Exception as e:
-        logger.exception(f"Error finding repositories sharing contributors with repo {repo_id}: {e}")
+        logger.exception(
+            f"Error finding repositories sharing contributors with repo {repo_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find repositories sharing contributors."
+            detail="Failed to find repositories sharing contributors.",
         )
+
 
 @router.get(
     "/repositories/{repo_id_1}/shared_contributors_with/{repo_id_2}",
-    response_model=List[ContributorResponse], # Returns detailed contributor info
+    response_model=List[ContributorResponse],  # Returns detailed contributor info
     summary="Get Specific Contributors Shared Between Two Repositories",
-    tags=["Surfacing", "Contributors"] # Add relevant tags for API documentation
+    tags=["Surfacing", "Contributors"],  # Add relevant tags for API documentation
 )
 def get_shared_contributor_details_between_repos(
     repo_id_1: int,
     repo_id_2: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves the detailed information for contributors who are associated with
@@ -378,10 +424,12 @@ def get_shared_contributor_details_between_repos(
                        404 if either repository ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get shared contributor details between repo {repo_id_1} and {repo_id_2}")
+    logger.info(
+        f"Request received: Get shared contributor details between repo {repo_id_1} and {repo_id_2}"
+    )
     # Check for self-comparison
     if repo_id_1 == repo_id_2:
-         raise HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot compare a repository with itself for shared contributors.",
         )
@@ -396,21 +444,24 @@ def get_shared_contributor_details_between_repos(
         # FastAPI maps the Contributor models to ContributorResponse
         return shared_contributors
     except Exception as e:
-        logger.exception(f"Error getting shared contributors between {repo_id_1} and {repo_id_2}: {e}")
+        logger.exception(
+            f"Error getting shared contributors between {repo_id_1} and {repo_id_2}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve shared contributor details."
+            detail="Failed to retrieve shared contributor details.",
         )
+
 
 @router.get(
     "/repositories/{repo_id}/shared_works",
-    response_model=List[RepositorySummary], # Returns summaries of related repositories
-    summary="Get Repositories sharing linked Works"
+    response_model=List[RepositorySummary],  # Returns summaries of related repositories
+    summary="Get Repositories sharing linked Works",
 )
 def get_shared_works_repositories(
     repo_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of other repositories (summaries) that share at least one
@@ -429,27 +480,34 @@ def get_shared_works_repositories(
         HTTPException: 404 if the repository ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get repositories sharing works with repo ID {repo_id}")
-    _get_repository_or_404(db, repo_id) # Ensure source repository exists
+    logger.info(
+        f"Request received: Get repositories sharing works with repo ID {repo_id}"
+    )
+    _get_repository_or_404(db, repo_id)  # Ensure source repository exists
     try:
-        shared_repos = service.get_repositories_sharing_works(db=db, repository_id=repo_id)
+        shared_repos = service.get_repositories_sharing_works(
+            db=db, repository_id=repo_id
+        )
         return shared_repos
     except Exception as e:
-        logger.exception(f"Error finding repositories sharing works with repo {repo_id}: {e}")
+        logger.exception(
+            f"Error finding repositories sharing works with repo {repo_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find repositories sharing linked works."
+            detail="Failed to find repositories sharing linked works.",
         )
+
 
 @router.get(
     "/works/{work_id}/citing_people",
-    response_model=List[PersonSummary], # Returns summaries of people
-    summary="Get People who authored works citing this Work"
+    response_model=List[PersonSummary],  # Returns summaries of people
+    summary="Get People who authored works citing this Work",
 )
 def get_work_citing_people(
     work_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of people (summaries) who are authors of scholarly works
@@ -468,7 +526,7 @@ def get_work_citing_people(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get people citing work ID {work_id}")
-    _get_work_or_404(db, work_id) # Ensure the cited work exists
+    _get_work_or_404(db, work_id)  # Ensure the cited work exists
     try:
         people = service.get_people_citing_work(db=db, work_id=work_id)
         return people
@@ -476,18 +534,19 @@ def get_work_citing_people(
         logger.exception(f"Error finding people citing work {work_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find people associated with citing works."
+            detail="Failed to find people associated with citing works.",
         )
+
 
 @router.get(
     "/works/{work_id}/citing_institutions",
-    response_model=List[InstitutionSummary], # Returns summaries of institutions
-    summary="Get Institutions affiliated with authors citing this Work"
+    response_model=List[InstitutionSummary],  # Returns summaries of institutions
+    summary="Get Institutions affiliated with authors citing this Work",
 )
 def get_work_citing_institutions(
     work_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of institutions (summaries) that are affiliated with authors
@@ -506,7 +565,7 @@ def get_work_citing_institutions(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get institutions citing work ID {work_id}")
-    _get_work_or_404(db, work_id) # Ensure the cited work exists
+    _get_work_or_404(db, work_id)  # Ensure the cited work exists
     try:
         institutions = service.get_institutions_citing_work(db=db, work_id=work_id)
         return institutions
@@ -514,18 +573,19 @@ def get_work_citing_institutions(
         logger.exception(f"Error finding institutions citing work {work_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find institutions associated with citing works."
+            detail="Failed to find institutions associated with citing works.",
         )
+
 
 @router.get(
     "/institutions/{institution_id}/repositories",
-    response_model=List[RepositorySummary], # Returns summaries of repositories
-    summary="Get Repositories linked to an Institution"
+    response_model=List[RepositorySummary],  # Returns summaries of repositories
+    summary="Get Repositories linked to an Institution",
 )
 def get_institution_repositories(
     institution_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of repositories (summaries) that have been linked to the
@@ -543,27 +603,34 @@ def get_institution_repositories(
         HTTPException: 404 if the institution ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get repositories for institution ID {institution_id}")
-    _get_institution_or_404(db, institution_id) # Ensure institution exists
+    logger.info(
+        f"Request received: Get repositories for institution ID {institution_id}"
+    )
+    _get_institution_or_404(db, institution_id)  # Ensure institution exists
     try:
-        repositories = service.get_repositories_by_institution(db=db, institution_id=institution_id)
+        repositories = service.get_repositories_by_institution(
+            db=db, institution_id=institution_id
+        )
         return repositories
     except Exception as e:
-        logger.exception(f"Error finding repositories for institution {institution_id}: {e}")
+        logger.exception(
+            f"Error finding repositories for institution {institution_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find linked repositories for the institution."
+            detail="Failed to find linked repositories for the institution.",
         )
+
 
 @router.get(
     "/persons/{person_id}/works",
-    response_model=List[WorkSummary], # Returns summaries of works
-    summary="Get Works associated with a Person"
+    response_model=List[WorkSummary],  # Returns summaries of works
+    summary="Get Works associated with a Person",
 )
 def get_person_works(
     person_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of scholarly works (summaries) authored by or associated
@@ -582,7 +649,7 @@ def get_person_works(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get works for person ID {person_id}")
-    _get_person_or_404(db, person_id) # Ensure person exists
+    _get_person_or_404(db, person_id)  # Ensure person exists
     try:
         works = service.get_works_by_person(db=db, person_id=person_id)
         return works
@@ -590,19 +657,20 @@ def get_person_works(
         logger.exception(f"Error finding works for person {person_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find works associated with the person."
+            detail="Failed to find works associated with the person.",
         )
+
 
 @router.get(
     "/contributors/{contributor_id}/repositories",
-    response_model=List[RepositorySummary], # Returns summaries of repositories
+    response_model=List[RepositorySummary],  # Returns summaries of repositories
     summary="Get Repositories associated with a Contributor",
-    tags=["Surfacing", "Contributors"]
+    tags=["Surfacing", "Contributors"],
 )
 def get_contributor_repositories(
     contributor_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of repositories (summaries) that the specified contributor
@@ -620,32 +688,44 @@ def get_contributor_repositories(
         HTTPException: 404 if the contributor ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get repositories for contributor ID {contributor_id}")
-    _get_contributor_or_404(db, contributor_id) # Ensure contributor link exists
+    logger.info(
+        f"Request received: Get repositories for contributor ID {contributor_id}"
+    )
+    _get_contributor_or_404(db, contributor_id)  # Ensure contributor link exists
     try:
-        repositories = service.get_repositories_by_contributor(db=db, contributor_id=contributor_id)
+        repositories = service.get_repositories_by_contributor(
+            db=db, contributor_id=contributor_id
+        )
         # FastAPI handles mapping Repository models to RepositorySummary
         return repositories
     except Exception as e:
-        logger.exception(f"Error finding repositories for contributor {contributor_id}: {e}")
+        logger.exception(
+            f"Error finding repositories for contributor {contributor_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find repositories associated with the contributor."
+            detail="Failed to find repositories associated with the contributor.",
         )
 
 
 # --- Endpoints related to Affiliations ---
 
+
 @router.get(
     "/repositories/{repo_id}/affiliations",
     response_model=List[AffiliationResultResponse],
-    summary="Get Affiliations for a Repository"
+    summary="Get Affiliations for a Repository",
 )
 def get_repository_affiliations(
     repo_id: int,
-    min_confidence: Optional[float] = Query(0.0, ge=0.0, le=1.0, description="Optional minimum confidence score [0.0, 1.0] to filter results."),
+    min_confidence: Optional[float] = Query(
+        0.0,
+        ge=0.0,
+        le=1.0,
+        description="Optional minimum confidence score [0.0, 1.0] to filter results.",
+    ),
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of repository-institution affiliations calculated for the
@@ -665,30 +745,40 @@ def get_repository_affiliations(
         HTTPException: 404 if the repository ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get affiliations for repository ID {repo_id} (min_conf: {min_confidence})")
-    _get_repository_or_404(db, repo_id) # Ensure repository exists
+    logger.info(
+        f"Request received: Get affiliations for repository ID {repo_id} (min_conf: {min_confidence})"
+    )
+    _get_repository_or_404(db, repo_id)  # Ensure repository exists
     try:
         affiliations = service.get_affiliations_for_repository(
-            db=db, repository_id=repo_id, min_confidence=min_confidence or 0.0 # Use 0.0 if None
+            db=db,
+            repository_id=repo_id,
+            min_confidence=min_confidence or 0.0,  # Use 0.0 if None
         )
         return affiliations
     except Exception as e:
         logger.exception(f"Error getting affiliations for repository {repo_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve repository affiliations."
+            detail="Failed to retrieve repository affiliations.",
         )
+
 
 @router.get(
     "/institutions/{inst_id}/affiliations",
     response_model=List[AffiliationResultResponse],
-    summary="Get Affiliations for an Institution (Filtered)"
+    summary="Get Affiliations for an Institution (Filtered)",
 )
 def get_institution_affiliations_filtered(
     inst_id: int,
-    min_confidence: Optional[float] = Query(0.0, ge=0.0, le=1.0, description="Optional minimum confidence score [0.0, 1.0] to filter results."),
+    min_confidence: Optional[float] = Query(
+        0.0,
+        ge=0.0,
+        le=1.0,
+        description="Optional minimum confidence score [0.0, 1.0] to filter results.",
+    ),
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of repository-institution affiliations calculated for the
@@ -711,29 +801,36 @@ def get_institution_affiliations_filtered(
         HTTPException: 404 if the institution ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get filtered affiliations for institution ID {inst_id} (min_conf: {min_confidence})")
-    _get_institution_or_404(db, inst_id) # Ensure institution exists
+    logger.info(
+        f"Request received: Get filtered affiliations for institution ID {inst_id} (min_conf: {min_confidence})"
+    )
+    _get_institution_or_404(db, inst_id)  # Ensure institution exists
     try:
         affiliations = service.get_affiliations_for_institution(
-            db=db, institution_id=inst_id, min_confidence=min_confidence or 0.0 # Use 0.0 if None
+            db=db,
+            institution_id=inst_id,
+            min_confidence=min_confidence or 0.0,  # Use 0.0 if None
         )
         return affiliations
     except Exception as e:
-        logger.exception(f"Error getting filtered affiliations for institution {inst_id}: {e}")
+        logger.exception(
+            f"Error getting filtered affiliations for institution {inst_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve filtered institution affiliations."
+            detail="Failed to retrieve filtered institution affiliations.",
         )
+
 
 @router.get(
     "/institutions/{inst_id}/affiliation_results",
     response_model=List[AffiliationResultResponse],
-    summary="Get All Stored Affiliation Results for an Institution"
+    summary="Get All Stored Affiliation Results for an Institution",
 )
 def get_all_institution_affiliation_results(
     inst_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves *all* stored repository-institution affiliation results associated
@@ -751,8 +848,10 @@ def get_all_institution_affiliation_results(
         HTTPException: 404 if the institution ID is not found.
                        500 if an error occurs during retrieval.
     """
-    logger.info(f"Request received: Get ALL affiliation results for institution ID {inst_id}")
-    _get_institution_or_404(db, inst_id) # Ensure institution exists
+    logger.info(
+        f"Request received: Get ALL affiliation results for institution ID {inst_id}"
+    )
+    _get_institution_or_404(db, inst_id)  # Ensure institution exists
     try:
         # Call the service method with minimum confidence set to 0 to retrieve all results
         affiliations = service.get_affiliations_for_institution(
@@ -760,23 +859,26 @@ def get_all_institution_affiliation_results(
         )
         return affiliations
     except Exception as e:
-        logger.exception(f"Error getting all affiliation results for institution {inst_id}: {e}")
+        logger.exception(
+            f"Error getting all affiliation results for institution {inst_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve all affiliation results for the institution."
+            detail="Failed to retrieve all affiliation results for the institution.",
         )
+
 
 # --- Endpoint for Software Dependencies ---
 @router.get(
     "/repositories/{repo_id}/dependencies",
     response_model=List[SoftwareDependencyResponse],
     summary="Get Software Dependencies for a Repository",
-    tags=["Surfacing", "Dependencies"]
+    tags=["Surfacing", "Dependencies"],
 )
 def get_repository_dependencies(
     repo_id: int,
     db: Session = Depends(get_db_session),
-    service: SurfacingService = Depends() # Inject service
+    service: SurfacingService = Depends(),  # Inject service
 ):
     """
     Retrieves a list of software dependencies (e.g., libraries, packages)
@@ -796,15 +898,19 @@ def get_repository_dependencies(
                        500 if an error occurs during retrieval.
     """
     logger.info(f"Request received: Get dependencies for repository ID {repo_id}")
-    _get_repository_or_404(db, repo_id) # Ensure repository exists
+    _get_repository_or_404(db, repo_id)  # Ensure repository exists
     try:
-        dependencies = service.get_dependencies_for_repository(db=db, repository_id=repo_id)
+        dependencies = service.get_dependencies_for_repository(
+            db=db, repository_id=repo_id
+        )
         # FastAPI handles mapping SoftwareDependency models to SoftwareDependencyResponse
         return dependencies
     except Exception as e:
         logger.exception(f"Error finding dependencies for repository {repo_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to find dependencies for the repository."
+            detail="Failed to find dependencies for the repository.",
         )
+
+
 # --- END ADDED ENDPOINT ---

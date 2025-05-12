@@ -12,6 +12,7 @@ importing them into the main application process. It handles passing parameters,
 database connection strings, and secrets securely, captures output, manages
 timeouts, and returns structured results or error information.
 """
+
 import sys
 import subprocess
 import json
@@ -34,6 +35,7 @@ _run_script_path = _project_root / "scripts" / "run_recipe_script.py"
 # This ensures the subprocess uses the same Python environment.
 _python_executable = sys.executable
 
+
 def execute_recipe(
     recipe_path_relative: str,
     recipe_params: Dict[str, Any],
@@ -41,7 +43,7 @@ def execute_recipe(
     timeout: int = 60,
     script_type: str = "analysis",
     function_name: str = "run_analysis",
-    secrets: Optional[Dict[str, str]] = None
+    secrets: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Executes a specified recipe Python script in an isolated subprocess.
@@ -79,9 +81,17 @@ def execute_recipe(
 
     # Validate that the recipe script file exists.
     if not absolute_recipe_path.is_file():
-        error_msg = f"Recipe script file not found at resolved path: {absolute_recipe_path}"
+        error_msg = (
+            f"Recipe script file not found at resolved path: {absolute_recipe_path}"
+        )
         logger.error(error_msg)
-        return {"success": False, "error": {"error": "FileNotFoundError", "message": f"Recipe script not found: {recipe_path_relative}"}}
+        return {
+            "success": False,
+            "error": {
+                "error": "FileNotFoundError",
+                "message": f"Recipe script not found: {recipe_path_relative}",
+            },
+        }
 
     # Serialize the parameters dictionary into a JSON string.
     try:
@@ -90,7 +100,13 @@ def execute_recipe(
         # Handle potential errors during JSON serialization (e.g., non-serializable types).
         error_msg = f"Could not serialize recipe parameters to JSON: {e}"
         logger.error(error_msg)
-        return {"success": False, "error": {"error": "ParameterSerializationError", "message": f"Could not serialize parameters: {e}"}}
+        return {
+            "success": False,
+            "error": {
+                "error": "ParameterSerializationError",
+                "message": f"Could not serialize parameters: {e}",
+            },
+        }
 
     # --- Construct the Subprocess Command ---
     # Base command includes the Python interpreter, the runner script path,
@@ -98,22 +114,29 @@ def execute_recipe(
     command = [
         _python_executable,
         str(_run_script_path),
-        "--module-path", str(absolute_recipe_path),
-        "--params-json", params_json,
-        "--db-conn-str", db_conn_str,
-        "--script-type", script_type,
-        "--function-name", function_name,
+        "--module-path",
+        str(absolute_recipe_path),
+        "--params-json",
+        params_json,
+        "--db-conn-str",
+        db_conn_str,
+        "--script-type",
+        script_type,
+        "--function-name",
+        function_name,
     ]
 
     # Append secret arguments securely if provided.
     # Each key and value is passed as a separate argument pair.
-    log_secrets_display = [] # Used for constructing a masked version for logging.
+    log_secrets_display = []  # Used for constructing a masked version for logging.
     if secrets:
         for key, value in secrets.items():
             # Append actual key and value to the command list.
-            command.extend([f"--secret-key", key, f"--secret-value", value])
+            command.extend(["--secret-key", key, "--secret-value", value])
             # Append key and masked value for logging purposes.
-            log_secrets_display.extend([f"--secret-key", key, f"--secret-value", "[SECRET]"])
+            log_secrets_display.extend(
+                ["--secret-key", key, "--secret-value", "[SECRET]"]
+            )
 
     # --- Log Execution Attempt (Masking Sensitive Data) ---
     # Create a version of the command for logging where sensitive information
@@ -121,14 +144,19 @@ def execute_recipe(
     log_command_display = [
         _python_executable,
         str(_run_script_path),
-        "--module-path", str(absolute_recipe_path),
-        "--params-json", "[PARAMS_JSON]", # Mask serialized parameters.
-        "--db-conn-str", "[DB_CONN_STR]", # Mask database connection string.
-        "--script-type", script_type,
-        "--function-name", function_name,
+        "--module-path",
+        str(absolute_recipe_path),
+        "--params-json",
+        "[PARAMS_JSON]",  # Mask serialized parameters.
+        "--db-conn-str",
+        "[DB_CONN_STR]",  # Mask database connection string.
+        "--script-type",
+        script_type,
+        "--function-name",
+        function_name,
     ]
     if log_secrets_display:
-        log_command_display.extend(log_secrets_display) # Append masked secrets.
+        log_command_display.extend(log_secrets_display)  # Append masked secrets.
 
     logger.info(f"Executing recipe via subprocess: {' '.join(log_command_display)}")
 
@@ -136,11 +164,11 @@ def execute_recipe(
     try:
         result = subprocess.run(
             command,
-            capture_output=True,    # Capture stdout and stderr streams.
-            text=True,              # Decode stdout/stderr as text (UTF-8 by default).
-            check=False,            # Do not raise CalledProcessError on non-zero exit codes (handle manually).
-            timeout=timeout,        # Set the execution timeout.
-            encoding='utf-8',       # Explicitly specify UTF-8 encoding.
+            capture_output=True,  # Capture stdout and stderr streams.
+            text=True,  # Decode stdout/stderr as text (UTF-8 by default).
+            check=False,  # Do not raise CalledProcessError on non-zero exit codes (handle manually).
+            timeout=timeout,  # Set the execution timeout.
+            encoding="utf-8",  # Explicitly specify UTF-8 encoding.
             # Security Consideration: Review environment variables passed. By default,
             # the subprocess inherits the parent's environment. Limit if necessary.
             # env=os.environ.copy() # Example: pass current environment (review security).
@@ -156,20 +184,33 @@ def execute_recipe(
 
         # Check the return code of the runner script.
         if result.returncode != 0:
-            logger.error(f"Recipe runner script exited with non-zero code: {result.returncode} for {recipe_path_relative}")
+            logger.error(
+                f"Recipe runner script exited with non-zero code: {result.returncode} for {recipe_path_relative}"
+            )
             # Attempt to parse stdout for a structured JSON error message from the runner script.
             try:
                 error_json = json.loads(stdout)
                 # Check if it matches the expected failure structure.
                 if isinstance(error_json, dict) and error_json.get("success") is False:
-                    logger.error(f"Recipe execution failed (reported by runner): {error_json.get('error', {})}")
-                    return error_json # Return the detailed error from the runner.
+                    logger.error(
+                        f"Recipe execution failed (reported by runner): {error_json.get('error', {})}"
+                    )
+                    return error_json  # Return the detailed error from the runner.
             except json.JSONDecodeError:
                 # If stdout is not JSON, log the raw output (truncated).
-                logger.error(f"Recipe runner stdout was not valid JSON error output: {stdout[:500]}...")
+                logger.error(
+                    f"Recipe runner stdout was not valid JSON error output: {stdout[:500]}..."
+                )
 
             # Return a generic execution error if JSON parsing failed or structure was wrong.
-            return {"success": False, "error": {"error": "ExecutionError", "message": f"Script exited with code {result.returncode}. Stderr: {stderr[:500]}...", "script_path": recipe_path_relative}}
+            return {
+                "success": False,
+                "error": {
+                    "error": "ExecutionError",
+                    "message": f"Script exited with code {result.returncode}. Stderr: {stderr[:500]}...",
+                    "script_path": recipe_path_relative,
+                },
+            }
 
         # If return code is 0, proceed assuming success.
         # Attempt to parse the standard output as the JSON result from the recipe.
@@ -180,28 +221,66 @@ def execute_recipe(
                 if result_json["success"] is True:
                     # Successful execution reported by the runner.
                     logger.info(f"Recipe execution successful: {recipe_path_relative}")
-                    return result_json # Return the structured result.
+                    return result_json  # Return the structured result.
                 else:
                     # Handle edge case: runner exited 0 but reported "success": false.
-                    logger.error(f"Recipe runner ({recipe_path_relative}) exited 0 but reported success=False: {result_json.get('error', 'No error details provided')}")
-                    return result_json # Return the structured error from the runner.
+                    logger.error(
+                        f"Recipe runner ({recipe_path_relative}) exited 0 but reported success=False: {result_json.get('error', 'No error details provided')}"
+                    )
+                    return result_json  # Return the structured error from the runner.
             else:
-                 # Runner exited 0, but output format doesn't match expected structure.
-                 logger.error(f"Recipe runner ({recipe_path_relative}) exited 0 but output unexpected JSON structure: {stdout[:500]}...")
-                 return {"success": False, "error": {"error": "OutputFormatError", "message": "Script exited successfully but output was not in expected format.", "output": stdout[:500]}}
+                # Runner exited 0, but output format doesn't match expected structure.
+                logger.error(
+                    f"Recipe runner ({recipe_path_relative}) exited 0 but output unexpected JSON structure: {stdout[:500]}..."
+                )
+                return {
+                    "success": False,
+                    "error": {
+                        "error": "OutputFormatError",
+                        "message": "Script exited successfully but output was not in expected format.",
+                        "output": stdout[:500],
+                    },
+                }
 
         except json.JSONDecodeError as e:
             # Failed to decode the expected JSON result from stdout.
-            logger.error(f"Failed to decode JSON result from recipe runner stdout ({recipe_path_relative}): {e}. Output: {stdout[:500]}...")
-            return {"success": False, "error": {"error": "OutputDecodeError", "message": f"Could not decode script output as JSON: {e}", "output": stdout[:500]}}
+            logger.error(
+                f"Failed to decode JSON result from recipe runner stdout ({recipe_path_relative}): {e}. Output: {stdout[:500]}..."
+            )
+            return {
+                "success": False,
+                "error": {
+                    "error": "OutputDecodeError",
+                    "message": f"Could not decode script output as JSON: {e}",
+                    "output": stdout[:500],
+                },
+            }
 
     # --- Handle Subprocess Exceptions ---
     except subprocess.TimeoutExpired:
         # Subprocess execution exceeded the specified timeout.
-        logger.error(f"Recipe execution timed out after {timeout}s: {recipe_path_relative}")
-        return {"success": False, "error": {"error": "TimeoutError", "message": f"Execution timed out after {timeout} seconds."}}
+        logger.error(
+            f"Recipe execution timed out after {timeout}s: {recipe_path_relative}"
+        )
+        return {
+            "success": False,
+            "error": {
+                "error": "TimeoutError",
+                "message": f"Execution timed out after {timeout} seconds.",
+            },
+        }
     except Exception as e:
         # Catch any other unexpected errors during subprocess management.
-        logger.exception(f"Unexpected error running recipe subprocess for {recipe_path_relative}")
-        return {"success": False, "error": {"error": "SubprocessError", "message": f"Unexpected error launching or managing subprocess: {e}"}}
+        logger.exception(
+            f"Unexpected error running recipe subprocess for {recipe_path_relative}"
+        )
+        return {
+            "success": False,
+            "error": {
+                "error": "SubprocessError",
+                "message": f"Unexpected error launching or managing subprocess: {e}",
+            },
+        }
+
+
 # --- END OF FILE recipe_executor.py ---

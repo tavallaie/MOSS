@@ -11,12 +11,13 @@ import logging
 from typing import Optional, Dict, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError # General SQLAlchemy exception
+from sqlalchemy.exc import SQLAlchemyError  # General SQLAlchemy exception
 
 from .base_repository import BaseRepository
-from backend.data.models import Work # The specific SQLAlchemy model
+from backend.data.models import Work  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class WorkRepository(BaseRepository[Work]):
     """
@@ -54,7 +55,8 @@ class WorkRepository(BaseRepository[Work]):
         Raises:
             SQLAlchemyError: If a database error occurs during the query.
         """
-        if not doi: return None # Avoid querying with empty DOI.
+        if not doi:
+            return None  # Avoid querying with empty DOI.
         logger.debug(f"Getting Work by DOI: {doi}")
         if not self.db.is_active:
             logger.warning(f"Session is inactive in get_by_doi for Work DOI {doi}")
@@ -65,7 +67,9 @@ class WorkRepository(BaseRepository[Work]):
             # Consider `noload('*')` or `load_only()` if only the ID is needed frequently.
             return self.db.query(self.model).filter(self.model.doi == doi).first()
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_by_doi for Work {doi}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_by_doi for Work {doi}: {e}", exc_info=True
+            )
             raise
 
     def get_by_openalex_id(self, *, openalex_id: str) -> Optional[Work]:
@@ -82,21 +86,29 @@ class WorkRepository(BaseRepository[Work]):
         Raises:
             SQLAlchemyError: If a database error occurs during the query.
         """
-        if not openalex_id: return None # Avoid querying with empty ID.
+        if not openalex_id:
+            return None  # Avoid querying with empty ID.
         logger.debug(f"Getting Work by OpenAlex ID: {openalex_id}")
         if not self.db.is_active:
-            logger.warning(f"Session is inactive in get_by_openalex_id for Work OA ID {openalex_id}")
+            logger.warning(
+                f"Session is inactive in get_by_openalex_id for Work OA ID {openalex_id}"
+            )
             return None
         try:
             # Query based on the OpenAlex ID. Indexing is essential here too.
-            return self.db.query(self.model).filter(self.model.openalex_id == openalex_id).first()
+            return (
+                self.db.query(self.model)
+                .filter(self.model.openalex_id == openalex_id)
+                .first()
+            )
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_by_openalex_id for Work {openalex_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_by_openalex_id for Work {openalex_id}: {e}",
+                exc_info=True,
+            )
             raise
 
-    def get_or_create_by_doi(
-        self, *, doi: str, obj_in_data: Dict[str, Any]
-    ) -> Work:
+    def get_or_create_by_doi(self, *, doi: str, obj_in_data: Dict[str, Any]) -> Work:
         """
         Retrieves or creates a Work, prioritizing the DOI.
 
@@ -131,10 +143,14 @@ class WorkRepository(BaseRepository[Work]):
             SQLAlchemyError: If any database operation fails.
         """
         if not doi:
-             raise ValueError("DOI cannot be empty for Work get_or_create_by_doi")
+            raise ValueError("DOI cannot be empty for Work get_or_create_by_doi")
         if not self.db.is_active:
-             logger.error("Session is inactive at start of get_or_create_by_doi for Work.")
-             raise RuntimeError("Database session is inactive, cannot perform get_or_create.")
+            logger.error(
+                "Session is inactive at start of get_or_create_by_doi for Work."
+            )
+            raise RuntimeError(
+                "Database session is inactive, cannot perform get_or_create."
+            )
 
         try:
             # --- Step 1: Query First by DOI ---
@@ -142,42 +158,54 @@ class WorkRepository(BaseRepository[Work]):
 
             if db_obj:
                 # --- Step 2a: Found by DOI - Update Check ---
-                logger.debug(f"Found existing Work by DOI {doi} (DB ID: {db_obj.id}). Checking for updates.")
+                logger.debug(
+                    f"Found existing Work by DOI {doi} (DB ID: {db_obj.id}). Checking for updates."
+                )
                 updated = False
                 new_oa_id = obj_in_data.get("openalex_id")
 
                 # Update OpenAlex ID if provided and different, checking for conflicts.
                 if new_oa_id and db_obj.openalex_id != new_oa_id:
-                     if not self.db.is_active: # Re-check session
-                          raise RuntimeError("Session inactive before OA ID conflict check.")
-                     existing_oa_work = self.get_by_openalex_id(openalex_id=new_oa_id)
-                     if existing_oa_work and existing_oa_work.id != db_obj.id:
-                          # Log conflict, skip OA ID update.
-                          logger.warning(
-                              f"Cannot update OA ID for Work DOI {doi} (DB ID {db_obj.id}) to {new_oa_id} "
-                              f"because it's already assigned to Work DB ID {existing_oa_work.id}. Skipping OA ID update."
-                          )
-                     else:
-                          logger.info(f"Updating OA ID for Work {db_obj.id} from '{db_obj.openalex_id}' to '{new_oa_id}'")
-                          db_obj.openalex_id = new_oa_id
-                          updated = True
+                    if not self.db.is_active:  # Re-check session
+                        raise RuntimeError(
+                            "Session inactive before OA ID conflict check."
+                        )
+                    existing_oa_work = self.get_by_openalex_id(openalex_id=new_oa_id)
+                    if existing_oa_work and existing_oa_work.id != db_obj.id:
+                        # Log conflict, skip OA ID update.
+                        logger.warning(
+                            f"Cannot update OA ID for Work DOI {doi} (DB ID {db_obj.id}) to {new_oa_id} "
+                            f"because it's already assigned to Work DB ID {existing_oa_work.id}. Skipping OA ID update."
+                        )
+                    else:
+                        logger.info(
+                            f"Updating OA ID for Work {db_obj.id} from '{db_obj.openalex_id}' to '{new_oa_id}'"
+                        )
+                        db_obj.openalex_id = new_oa_id
+                        updated = True
 
                 # Update other fields if provided and different.
-                if obj_in_data.get('title') is not None and db_obj.title != obj_in_data.get('title'):
-                    db_obj.title = obj_in_data['title']
+                if obj_in_data.get(
+                    "title"
+                ) is not None and db_obj.title != obj_in_data.get("title"):
+                    db_obj.title = obj_in_data["title"]
                     updated = True
-                if obj_in_data.get('cited_by_count') is not None and db_obj.cited_by_count != obj_in_data.get('cited_by_count'):
-                    db_obj.cited_by_count = obj_in_data['cited_by_count']
+                if obj_in_data.get(
+                    "cited_by_count"
+                ) is not None and db_obj.cited_by_count != obj_in_data.get(
+                    "cited_by_count"
+                ):
+                    db_obj.cited_by_count = obj_in_data["cited_by_count"]
                     updated = True
                 # Add other updatable fields (publication_year, type, etc.)...
 
                 if updated:
-                    self.db.add(db_obj) # Mark as dirty.
+                    self.db.add(db_obj)  # Mark as dirty.
                     logger.info(f"Work {db_obj.id} (found by DOI) marked for update.")
                     # Optional: Flush and refresh.
                     # self.db.flush()
                     # self.db.refresh(db_obj)
-                return db_obj # Return the instance found by DOI.
+                return db_obj  # Return the instance found by DOI.
 
             else:
                 # --- Step 2b: Not Found by DOI - Check OpenAlex ID ---
@@ -187,44 +215,65 @@ class WorkRepository(BaseRepository[Work]):
                     db_obj_oa = self.get_by_openalex_id(openalex_id=openalex_id)
                     if db_obj_oa:
                         # --- Step 4: Found by OA ID - Update with DOI ---
-                        logger.warning(f"Work not found by DOI {doi}, but found existing "
-                                       f"Work DB ID {db_obj_oa.id} by OA ID {openalex_id}. Attempting to merge/update.")
+                        logger.warning(
+                            f"Work not found by DOI {doi}, but found existing "
+                            f"Work DB ID {db_obj_oa.id} by OA ID {openalex_id}. Attempting to merge/update."
+                        )
                         updated = False
                         # Update DOI if it was missing or a placeholder.
                         # Assumes placeholders start with 'placeholder/'. Adapt if needed.
-                        if db_obj_oa.doi is None or db_obj_oa.doi.startswith('placeholder/'):
-                            logger.info(f"Updating placeholder/missing DOI for Work {db_obj_oa.id} (found by OA ID {openalex_id}) to {doi}")
+                        if db_obj_oa.doi is None or db_obj_oa.doi.startswith(
+                            "placeholder/"
+                        ):
+                            logger.info(
+                                f"Updating placeholder/missing DOI for Work {db_obj_oa.id} (found by OA ID {openalex_id}) to {doi}"
+                            )
                             db_obj_oa.doi = doi
                             updated = True
                         # Potentially update other fields if they were missing on the OA-found record.
-                        if obj_in_data.get('title') is not None and db_obj_oa.title is None:
-                            db_obj_oa.title = obj_in_data['title']
+                        if (
+                            obj_in_data.get("title") is not None
+                            and db_obj_oa.title is None
+                        ):
+                            db_obj_oa.title = obj_in_data["title"]
                             updated = True
-                        if obj_in_data.get('cited_by_count') is not None and db_obj_oa.cited_by_count is None:
-                            db_obj_oa.cited_by_count = obj_in_data['cited_by_count']
+                        if (
+                            obj_in_data.get("cited_by_count") is not None
+                            and db_obj_oa.cited_by_count is None
+                        ):
+                            db_obj_oa.cited_by_count = obj_in_data["cited_by_count"]
                             updated = True
                         # Add other fields...
 
                         if updated:
-                            self.db.add(db_obj_oa) # Mark for update.
-                            logger.info(f"Work {db_obj_oa.id} (found by OA ID) marked for update with DOI {doi}.")
+                            self.db.add(db_obj_oa)  # Mark for update.
+                            logger.info(
+                                f"Work {db_obj_oa.id} (found by OA ID) marked for update with DOI {doi}."
+                            )
                             # Optional: Flush and refresh.
                             # self.db.flush()
                             # self.db.refresh(db_obj_oa)
-                        return db_obj_oa # Return the instance found by OA ID.
+                        return db_obj_oa  # Return the instance found by OA ID.
 
                 # --- Step 5: Not Found by DOI or OA ID - Create New ---
-                logger.debug(f"Work DOI {doi} (and OA ID {openalex_id or 'N/A'}) not found. Creating new.")
-                obj_in_data["doi"] = doi # Ensure DOI is set.
-                new_obj = self.model(**obj_in_data) # Create instance.
-                self.db.add(new_obj) # Add to session.
-                self.db.flush() # Send INSERT.
-                self.db.refresh(new_obj) # Load DB defaults.
-                logger.info(f"Successfully created and flushed new Work DOI {doi} (DB ID: {new_obj.id})")
-                return new_obj # Return the new instance.
+                logger.debug(
+                    f"Work DOI {doi} (and OA ID {openalex_id or 'N/A'}) not found. Creating new."
+                )
+                obj_in_data["doi"] = doi  # Ensure DOI is set.
+                new_obj = self.model(**obj_in_data)  # Create instance.
+                self.db.add(new_obj)  # Add to session.
+                self.db.flush()  # Send INSERT.
+                self.db.refresh(new_obj)  # Load DB defaults.
+                logger.info(
+                    f"Successfully created and flushed new Work DOI {doi} (DB ID: {new_obj.id})"
+                )
+                return new_obj  # Return the new instance.
 
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_or_create_by_doi for Work DOI {doi}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_or_create_by_doi for Work DOI {doi}: {e}",
+                exc_info=True,
+            )
             # Caller handles rollback.
             raise
 
@@ -265,10 +314,16 @@ class WorkRepository(BaseRepository[Work]):
             SQLAlchemyError: If any database operation fails.
         """
         if not openalex_id:
-            raise ValueError("OpenAlex ID cannot be empty for Work get_or_create_by_openalex_id")
+            raise ValueError(
+                "OpenAlex ID cannot be empty for Work get_or_create_by_openalex_id"
+            )
         if not self.db.is_active:
-             logger.error("Session is inactive at start of get_or_create_by_openalex_id for Work.")
-             raise RuntimeError("Database session is inactive, cannot perform get_or_create.")
+            logger.error(
+                "Session is inactive at start of get_or_create_by_openalex_id for Work."
+            )
+            raise RuntimeError(
+                "Database session is inactive, cannot perform get_or_create."
+            )
 
         try:
             # --- Step 1: Query First by OpenAlex ID ---
@@ -276,17 +331,27 @@ class WorkRepository(BaseRepository[Work]):
 
             if db_obj:
                 # --- Step 2a: Found by OA ID - Update Check ---
-                logger.debug(f"Found existing Work by OA ID {openalex_id} (DB ID: {db_obj.id}). Checking for updates.")
+                logger.debug(
+                    f"Found existing Work by OA ID {openalex_id} (DB ID: {db_obj.id}). Checking for updates."
+                )
                 updated = False
                 new_doi = obj_in_data.get("doi")
 
                 # Update DOI if provided and different (or if current is placeholder).
                 # Also checks for conflicts if the new DOI exists elsewhere.
-                needs_doi_update = new_doi and (db_obj.doi is None or db_obj.doi.startswith('placeholder/') or db_obj.doi != new_doi)
+                needs_doi_update = new_doi and (
+                    db_obj.doi is None
+                    or db_obj.doi.startswith("placeholder/")
+                    or db_obj.doi != new_doi
+                )
                 if needs_doi_update:
-                    if not self.db.is_active: # Re-check session
-                         raise RuntimeError("Session inactive before DOI conflict check.")
-                    existing_doi_work = self.get_by_doi(doi=new_doi) if new_doi else None # Check only if new_doi is not None
+                    if not self.db.is_active:  # Re-check session
+                        raise RuntimeError(
+                            "Session inactive before DOI conflict check."
+                        )
+                    existing_doi_work = (
+                        self.get_by_doi(doi=new_doi) if new_doi else None
+                    )  # Check only if new_doi is not None
                     if existing_doi_work and existing_doi_work.id != db_obj.id:
                         # Log conflict, skip DOI update.
                         logger.warning(
@@ -294,78 +359,107 @@ class WorkRepository(BaseRepository[Work]):
                             f"because it's already assigned to Work DB ID {existing_doi_work.id}. Skipping DOI update."
                         )
                     else:
-                         logger.info(f"Updating DOI for Work {db_obj.id} from '{db_obj.doi}' to '{new_doi}'")
-                         db_obj.doi = new_doi
-                         updated = True
+                        logger.info(
+                            f"Updating DOI for Work {db_obj.id} from '{db_obj.doi}' to '{new_doi}'"
+                        )
+                        db_obj.doi = new_doi
+                        updated = True
 
                 # Update other fields if provided and different.
-                if obj_in_data.get('title') is not None and db_obj.title != obj_in_data.get('title'):
-                    db_obj.title = obj_in_data['title']
+                if obj_in_data.get(
+                    "title"
+                ) is not None and db_obj.title != obj_in_data.get("title"):
+                    db_obj.title = obj_in_data["title"]
                     updated = True
-                if obj_in_data.get('cited_by_count') is not None and db_obj.cited_by_count != obj_in_data.get('cited_by_count'):
-                    db_obj.cited_by_count = obj_in_data['cited_by_count']
+                if obj_in_data.get(
+                    "cited_by_count"
+                ) is not None and db_obj.cited_by_count != obj_in_data.get(
+                    "cited_by_count"
+                ):
+                    db_obj.cited_by_count = obj_in_data["cited_by_count"]
                     updated = True
                 # Add other updatable fields ...
 
                 if updated:
-                    self.db.add(db_obj) # Mark as dirty.
+                    self.db.add(db_obj)  # Mark as dirty.
                     logger.info(f"Work {db_obj.id} (found by OA ID) marked for update.")
                     # Optional: Flush and refresh.
                     # self.db.flush()
                     # self.db.refresh(db_obj)
-                return db_obj # Return instance found by OA ID.
+                return db_obj  # Return instance found by OA ID.
             else:
                 # --- Step 2b: Not Found by OA ID - Check DOI ---
                 doi_to_check = obj_in_data.get("doi")
                 # Only check by DOI if it's provided and isn't a placeholder itself.
-                if doi_to_check and not doi_to_check.startswith('placeholder/'):
+                if doi_to_check and not doi_to_check.startswith("placeholder/"):
                     # --- Step 3: Query by DOI ---
                     db_obj_doi = self.get_by_doi(doi=doi_to_check)
                     if db_obj_doi:
                         # --- Step 4: Found by DOI - Update with OA ID ---
-                        logger.warning(f"Work not found by OA ID {openalex_id}, but found existing "
-                                       f"Work DB ID {db_obj_doi.id} by DOI {doi_to_check}. Attempting to merge/update.")
+                        logger.warning(
+                            f"Work not found by OA ID {openalex_id}, but found existing "
+                            f"Work DB ID {db_obj_doi.id} by DOI {doi_to_check}. Attempting to merge/update."
+                        )
                         updated = False
                         # Add the OpenAlex ID if it was missing.
                         if not db_obj_doi.openalex_id:
-                            logger.info(f"Updating missing OA ID for Work {db_obj_doi.id} (found by DOI {doi_to_check}) to {openalex_id}")
+                            logger.info(
+                                f"Updating missing OA ID for Work {db_obj_doi.id} (found by DOI {doi_to_check}) to {openalex_id}"
+                            )
                             db_obj_doi.openalex_id = openalex_id
                             updated = True
                         # Potentially update other fields if missing.
-                        if obj_in_data.get('title') is not None and db_obj_doi.title is None:
-                            db_obj_doi.title = obj_in_data['title']
+                        if (
+                            obj_in_data.get("title") is not None
+                            and db_obj_doi.title is None
+                        ):
+                            db_obj_doi.title = obj_in_data["title"]
                             updated = True
-                        if obj_in_data.get('cited_by_count') is not None and db_obj_doi.cited_by_count is None:
-                            db_obj_doi.cited_by_count = obj_in_data['cited_by_count']
+                        if (
+                            obj_in_data.get("cited_by_count") is not None
+                            and db_obj_doi.cited_by_count is None
+                        ):
+                            db_obj_doi.cited_by_count = obj_in_data["cited_by_count"]
                             updated = True
                         # Add other fields ...
 
                         if updated:
-                            self.db.add(db_obj_doi) # Mark for update.
-                            logger.info(f"Work {db_obj_doi.id} (found by DOI) marked for update with OA ID {openalex_id}.")
+                            self.db.add(db_obj_doi)  # Mark for update.
+                            logger.info(
+                                f"Work {db_obj_doi.id} (found by DOI) marked for update with OA ID {openalex_id}."
+                            )
                             # Optional: Flush and refresh.
                             # self.db.flush()
                             # self.db.refresh(db_obj_doi)
-                        return db_obj_doi # Return instance found by DOI.
+                        return db_obj_doi  # Return instance found by DOI.
 
                 # --- Step 5: Not Found by OA ID or valid DOI - Create New ---
-                logger.debug(f"Work OA ID {openalex_id} (and DOI {doi_to_check or 'N/A'}) not found. Creating new.")
-                obj_in_data["openalex_id"] = openalex_id # Ensure OA ID is set.
+                logger.debug(
+                    f"Work OA ID {openalex_id} (and DOI {doi_to_check or 'N/A'}) not found. Creating new."
+                )
+                obj_in_data["openalex_id"] = openalex_id  # Ensure OA ID is set.
                 # Assign a placeholder DOI if a real DOI wasn't provided in the input data.
                 if "doi" not in obj_in_data or not obj_in_data["doi"]:
                     # Generate a predictable placeholder based on the OpenAlex ID.
                     placeholder_doi = f"placeholder/oa_{openalex_id}"
                     obj_in_data["doi"] = placeholder_doi
-                    logger.info(f"Assigning placeholder DOI '{placeholder_doi}' for new Work OA ID {openalex_id}")
+                    logger.info(
+                        f"Assigning placeholder DOI '{placeholder_doi}' for new Work OA ID {openalex_id}"
+                    )
 
-                new_obj = self.model(**obj_in_data) # Create instance.
-                self.db.add(new_obj) # Add to session.
-                self.db.flush() # Send INSERT.
-                self.db.refresh(new_obj) # Load DB defaults.
-                logger.info(f"Successfully created and flushed new Work OA ID {openalex_id} (DB ID: {new_obj.id}) with DOI '{new_obj.doi}'")
-                return new_obj # Return new instance.
+                new_obj = self.model(**obj_in_data)  # Create instance.
+                self.db.add(new_obj)  # Add to session.
+                self.db.flush()  # Send INSERT.
+                self.db.refresh(new_obj)  # Load DB defaults.
+                logger.info(
+                    f"Successfully created and flushed new Work OA ID {openalex_id} (DB ID: {new_obj.id}) with DOI '{new_obj.doi}'"
+                )
+                return new_obj  # Return new instance.
 
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_or_create_by_openalex_id for Work OA ID {openalex_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_or_create_by_openalex_id for Work OA ID {openalex_id}: {e}",
+                exc_info=True,
+            )
             # Caller handles rollback.
             raise

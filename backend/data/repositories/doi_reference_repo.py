@@ -15,9 +15,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from .base_repository import BaseRepository
-from backend.data.models import DOIReference # The specific SQLAlchemy model
+from backend.data.models import DOIReference  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class DOIReferenceRepository(BaseRepository[DOIReference]):
     """
@@ -61,11 +62,16 @@ class DOIReferenceRepository(BaseRepository[DOIReference]):
         try:
             return (
                 self.db.query(self.model)
-                .filter(self.model.repository_id == repository_id, self.model.doi == doi)
+                .filter(
+                    self.model.repository_id == repository_id, self.model.doi == doi
+                )
                 .all()
             )
         except SQLAlchemyError as e:
-            logger.error(f"DB error finding DOIReferences for repo {repository_id}, DOI {doi}: {e}", exc_info=True)
+            logger.error(
+                f"DB error finding DOIReferences for repo {repository_id}, DOI {doi}: {e}",
+                exc_info=True,
+            )
             raise
 
     def find_by_repository_and_doi_and_source(
@@ -88,7 +94,9 @@ class DOIReferenceRepository(BaseRepository[DOIReference]):
         Raises:
             SQLAlchemyError: If a database error occurs during the query.
         """
-        logger.debug(f"Finding unique DOIReference for repo_id {repository_id}, DOI {doi}, source {source_file}")
+        logger.debug(
+            f"Finding unique DOIReference for repo_id {repository_id}, DOI {doi}, source {source_file}"
+        )
         try:
             # Querying based on the combination of fields that likely form a unique constraint or key.
             return (
@@ -96,14 +104,14 @@ class DOIReferenceRepository(BaseRepository[DOIReference]):
                 .filter(
                     self.model.repository_id == repository_id,
                     self.model.doi == doi,
-                    self.model.source_file == source_file
+                    self.model.source_file == source_file,
                 )
-                .first() # Expecting at most one result due to the specific filters.
+                .first()  # Expecting at most one result due to the specific filters.
             )
         except SQLAlchemyError as e:
             logger.error(
                 f"Database error finding DOIReference for repo {repository_id}, doi {doi}, source {source_file}: {e}",
-                exc_info=True
+                exc_info=True,
             )
             # Re-raise allows the service layer or API endpoint to handle the failure gracefully.
             raise
@@ -130,7 +138,10 @@ class DOIReferenceRepository(BaseRepository[DOIReference]):
                 .all()
             )
         except SQLAlchemyError as e:
-            logger.error(f"DB error finding DOIReferences for repo {repository_id}: {e}", exc_info=True)
+            logger.error(
+                f"DB error finding DOIReferences for repo {repository_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def find_by_work_id(self, *, work_id: int) -> List[DOIReference]:
@@ -153,14 +164,12 @@ class DOIReferenceRepository(BaseRepository[DOIReference]):
         """
         logger.debug(f"Finding DOIReferences associated with work_id {work_id}")
         try:
-            return (
-                self.db.query(self.model)
-                .filter(self.model.work_id == work_id)
-                .all()
-            )
+            return self.db.query(self.model).filter(self.model.work_id == work_id).all()
         except SQLAlchemyError as e:
-             logger.error(f"DB error finding DOIReferences for work {work_id}: {e}", exc_info=True)
-             raise
+            logger.error(
+                f"DB error finding DOIReferences for work {work_id}: {e}", exc_info=True
+            )
+            raise
 
     # Other potential query methods could include:
     # - find_by_doi(doi: str) -> List[DOIReference]: Find all references to a DOI across all repositories.

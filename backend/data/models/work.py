@@ -7,7 +7,7 @@ identified via sources like OpenAlex or Crossref using DOIs.
 """
 
 from typing import List, Optional, TYPE_CHECKING
-from sqlalchemy import String, Integer, Text, Index, ForeignKey
+from sqlalchemy import String, Integer, Text, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 # Assuming Base and BaseModel are correctly defined elsewhere
@@ -18,10 +18,13 @@ from .base import BaseModel
 # Use TYPE_CHECKING to prevent circular imports for type hints,
 # necessary for defining relationships to other models.
 if TYPE_CHECKING:
-    from .doi_reference import DOIReference # Links DOIs found in repos back to this Work
-    from .authorship import Authorship     # Links Persons (authors) to this Work
-    from .work_citation import WorkCitation # Links this Work to cited/citing Works
-    from .work_topic import WorkTopic       # Links this Work to classification Topics
+    from .doi_reference import (
+        DOIReference,
+    )  # Links DOIs found in repos back to this Work
+    from .authorship import Authorship  # Links Persons (authors) to this Work
+    from .work_citation import WorkCitation  # Links this Work to cited/citing Works
+    from .work_topic import WorkTopic  # Links this Work to classification Topics
+
 
 class Work(BaseModel, Base):
     """
@@ -50,13 +53,16 @@ class Work(BaseModel, Base):
         citations: Relationship to WorkCitation records where this Work is the *cited* work.
         topics: Relationship to WorkTopic records linking this Work to subject Topics.
     """
+
     __tablename__ = "works"
 
     # --- Identifiers ---
     # Key unique identifiers for the scholarly work.
 
     # OpenAlex unique ID. Essential for linking with OpenAlex data. Indexed.
-    openalex_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    openalex_id: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
     # Digital Object Identifier. Should be unique and is crucial for resolution. Indexed.
     doi: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
 
@@ -66,13 +72,19 @@ class Work(BaseModel, Base):
     # Title of the publication. Text allows for long titles.
     title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Year of publication. Indexed for filtering by year.
-    publication_year: Mapped[Optional[int]] = mapped_column(Integer, index=True, nullable=True)
+    publication_year: Mapped[Optional[int]] = mapped_column(
+        Integer, index=True, nullable=True
+    )
     # Type of publication according to OpenAlex taxonomy. Indexed.
     type: Mapped[Optional[str]] = mapped_column(String, index=True, nullable=True)
     # Citation count as reported by the data source (e.g., OpenAlex).
-    cited_by_count: Mapped[Optional[int]] = mapped_column(Integer, default=0, nullable=True)
+    cited_by_count: Mapped[Optional[int]] = mapped_column(
+        Integer, default=0, nullable=True
+    )
     # Display name of the host venue (journal, conference proceedings, etc.).
-    host_venue_display_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    host_venue_display_name: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True
+    )
     # URL linking back to the OpenAlex page for this work.
     openalex_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
@@ -83,16 +95,14 @@ class Work(BaseModel, Base):
     # `back_populates` links to the 'work' attribute in DOIReference.
     # `cascade` ensures associated DOIReferences are deleted if the Work is deleted.
     doi_references: Mapped[List["DOIReference"]] = relationship(
-        back_populates="work",
-        cascade="all, delete-orphan"
+        back_populates="work", cascade="all, delete-orphan"
     )
 
     # One-to-Many: A Work typically has multiple Authorships (one per author).
     # `back_populates` links to the 'work' attribute in Authorship.
     # `cascade` ensures Authorships (and their Affiliations) are deleted if the Work is deleted.
     authorships: Mapped[List["Authorship"]] = relationship(
-        back_populates="work",
-        cascade="all, delete-orphan"
+        back_populates="work", cascade="all, delete-orphan"
     )
 
     # One-to-Many (Self-Referential via WorkCitation): Represents works *cited by* this work.
@@ -102,7 +112,7 @@ class Work(BaseModel, Base):
     references: Mapped[List["WorkCitation"]] = relationship(
         foreign_keys="WorkCitation.citing_work_id",
         back_populates="citing_work",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     # One-to-Many (Self-Referential via WorkCitation): Represents works *that cite* this work.
@@ -112,31 +122,34 @@ class Work(BaseModel, Base):
     citations: Mapped[List["WorkCitation"]] = relationship(
         foreign_keys="WorkCitation.cited_work_id",
         back_populates="cited_work",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     # One-to-Many: A Work can be associated with multiple Topics via the WorkTopic association table.
     # `back_populates` links to the 'work' attribute in the WorkTopic model.
     # `cascade` ensures WorkTopic entries are deleted if the Work is deleted.
     topics: Mapped[List["WorkTopic"]] = relationship(
-        back_populates="work",
-        cascade="all, delete-orphan"
+        back_populates="work", cascade="all, delete-orphan"
     )
 
     # --- Table Arguments ---
     # Define explicit indexes for commonly queried metadata fields.
     __table_args__ = (
         # Index on publication type for filtering.
-        Index('ix_works_type', 'type'),
+        Index("ix_works_type", "type"),
         # Index on publication year for filtering or sorting by year.
-        Index('ix_works_publication_year', 'publication_year'),
+        Index("ix_works_publication_year", "publication_year"),
         # Note: Indexes on openalex_id and doi are created due to unique=True.
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Safely access 'id' which comes from BaseModel
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         # Truncate title for brevity
-        title_repr = (self.title[:50] + '...') if self.title and len(self.title) > 50 else self.title or '[No Title]'
+        title_repr = (
+            (self.title[:50] + "...")
+            if self.title and len(self.title) > 50
+            else self.title or "[No Title]"
+        )
         return f"<Work(id={obj_id}, doi='{self.doi}', title='{title_repr}')>"

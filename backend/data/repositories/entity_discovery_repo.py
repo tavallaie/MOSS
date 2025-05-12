@@ -9,16 +9,17 @@ nodes in a DiscoveryChain.
 """
 
 import logging
-import uuid # For handling UUID foreign keys
+import uuid  # For handling UUID foreign keys
 from typing import Optional, List
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from .base_repository import BaseRepository
-from backend.data.models import EntityDiscoveryAssociation # The specific model
+from backend.data.models import EntityDiscoveryAssociation  # The specific model
 
 logger = logging.getLogger(__name__)
+
 
 class EntityDiscoveryAssociationRepository(BaseRepository[EntityDiscoveryAssociation]):
     """
@@ -73,10 +74,13 @@ class EntityDiscoveryAssociationRepository(BaseRepository[EntityDiscoveryAssocia
                     self.model.entity_type == entity_type,
                     self.model.entity_id == entity_id,
                 )
-                .first() # Expecting at most one association for this specific combination.
+                .first()  # Expecting at most one association for this specific combination.
             )
         except SQLAlchemyError as e:
-            logger.error(f"DB error finding association for chain {discovery_chain_id}, entity {entity_type}:{entity_id}: {e}", exc_info=True)
+            logger.error(
+                f"DB error finding association for chain {discovery_chain_id}, entity {entity_type}:{entity_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def find_by_entity(
@@ -100,7 +104,9 @@ class EntityDiscoveryAssociationRepository(BaseRepository[EntityDiscoveryAssocia
         Raises:
             SQLAlchemyError: If a database error occurs during the query.
         """
-        logger.debug(f"Finding EntityDiscoveryAssociations linked to entity type '{entity_type}', id {entity_id}")
+        logger.debug(
+            f"Finding EntityDiscoveryAssociations linked to entity type '{entity_type}', id {entity_id}"
+        )
         try:
             return (
                 self.db.query(self.model)
@@ -111,7 +117,10 @@ class EntityDiscoveryAssociationRepository(BaseRepository[EntityDiscoveryAssocia
                 .all()
             )
         except SQLAlchemyError as e:
-            logger.error(f"DB error finding associations for entity {entity_type}:{entity_id}: {e}", exc_info=True)
+            logger.error(
+                f"DB error finding associations for entity {entity_type}:{entity_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def find_by_chain(
@@ -133,7 +142,9 @@ class EntityDiscoveryAssociationRepository(BaseRepository[EntityDiscoveryAssocia
         Raises:
             SQLAlchemyError: If a database error occurs during the query.
         """
-        logger.debug(f"Finding all EntityDiscoveryAssociations for chain node {discovery_chain_id}")
+        logger.debug(
+            f"Finding all EntityDiscoveryAssociations for chain node {discovery_chain_id}"
+        )
         try:
             return (
                 self.db.query(self.model)
@@ -141,8 +152,11 @@ class EntityDiscoveryAssociationRepository(BaseRepository[EntityDiscoveryAssocia
                 .all()
             )
         except SQLAlchemyError as e:
-             logger.error(f"DB error finding associations for chain {discovery_chain_id}: {e}", exc_info=True)
-             raise
+            logger.error(
+                f"DB error finding associations for chain {discovery_chain_id}: {e}",
+                exc_info=True,
+            )
+            raise
 
     # Additional specific query methods can be added as needed, e.g.,
     # finding associations based on metadata within the association record itself.

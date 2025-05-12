@@ -5,20 +5,19 @@ Manages the creation, lifecycle, and entity associations of DiscoveryChain recor
 These chains track the provenance of discovered data points and their relationships.
 """
 
-import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, Type, TYPE_CHECKING
+from typing import Optional, Dict, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 # --- Added WorkTopic to model imports ---
-from backend.data.models import DiscoveryChain, EntityDiscoveryAssociation, WorkTopic
+from backend.data.models import DiscoveryChain, EntityDiscoveryAssociation
+
 # --- End Add ---
 from backend.data.repositories import (
     DiscoveryChainRepository,
-    EntityDiscoveryAssociationRepository,
 )
 from .base_service import BaseService
 
@@ -52,13 +51,18 @@ class DiscoveryChainService(BaseService):
         self.logger.debug(f"Getting DiscoveryChain by UUID: {id}")
         repo = DiscoveryChainRepository(db)
         try:
-             return repo.get(id=id)
+            return repo.get(id=id)
         except SQLAlchemyError as e:
-            self.logger.error(f"Database error getting DiscoveryChain UUID {id}: {e}", exc_info=True)
+            self.logger.error(
+                f"Database error getting DiscoveryChain UUID {id}: {e}", exc_info=True
+            )
             raise
 
     def create_root_chain(
-        self, db: Session, discovery_type: str, parameters: Optional[Dict[str, Any]] = None
+        self,
+        db: Session,
+        discovery_type: str,
+        parameters: Optional[Dict[str, Any]] = None,
     ) -> DiscoveryChain:
         """
         Creates a new root DiscoveryChain (level 0).
@@ -82,22 +86,24 @@ class DiscoveryChainService(BaseService):
         new_chain = DiscoveryChain(
             id=new_id,
             parent_chain_id=None,
-            root_chain_id=new_id, # A root chain is its own root
+            root_chain_id=new_id,  # A root chain is its own root
             level=0,
             discovery_type=discovery_type,
             parameters=parameters,
-            status='PENDING', # Initial status
-            started_at=datetime.now(timezone.utc)
+            status="PENDING",  # Initial status
+            started_at=datetime.now(timezone.utc),
         )
         try:
             db.add(new_chain)
-            db.flush() # Ensure the chain object has its ID assigned before returning
-            db.refresh(new_chain) # Load any server-defaults if applicable
+            db.flush()  # Ensure the chain object has its ID assigned before returning
+            db.refresh(new_chain)  # Load any server-defaults if applicable
             self.logger.info(f"Created and flushed root chain {new_chain.id}")
             return new_chain
         except SQLAlchemyError as e:
-            self.logger.error(f"Error creating/flushing root discovery chain: {e}", exc_info=True)
-            db.rollback() # Rollback this specific operation on error
+            self.logger.error(
+                f"Error creating/flushing root discovery chain: {e}", exc_info=True
+            )
+            db.rollback()  # Rollback this specific operation on error
             raise
 
     def create_child_chain(
@@ -127,45 +133,59 @@ class DiscoveryChainService(BaseService):
             ValueError: If the parent chain is missing its ID or root_chain_id.
             SQLAlchemyError: If a database error occurs during creation or flush.
         """
-        self.logger.info(f"Creating child chain under {parent_chain.id}: type='{discovery_type}'")
+        self.logger.info(
+            f"Creating child chain under {parent_chain.id}: type='{discovery_type}'"
+        )
 
         # Ensure parent chain has necessary IDs (already fetched or refreshed)
         if parent_chain.id is None or parent_chain.root_chain_id is None:
-             # Attempt to refresh the parent object state from the DB if IDs are missing
-             try:
-                 db.refresh(parent_chain)
-                 if parent_chain.id is None or parent_chain.root_chain_id is None:
-                     # If still missing after refresh, it indicates a problem
-                     raise ValueError("Parent chain ID or root ID is None even after refresh.")
-             except Exception as refresh_err:
-                 self.logger.error(f"Failed to refresh parent chain {parent_chain}: {refresh_err}")
-                 raise ValueError("Parent chain must have valid id and root_chain_id, refresh failed.") from refresh_err
+            # Attempt to refresh the parent object state from the DB if IDs are missing
+            try:
+                db.refresh(parent_chain)
+                if parent_chain.id is None or parent_chain.root_chain_id is None:
+                    # If still missing after refresh, it indicates a problem
+                    raise ValueError(
+                        "Parent chain ID or root ID is None even after refresh."
+                    )
+            except Exception as refresh_err:
+                self.logger.error(
+                    f"Failed to refresh parent chain {parent_chain}: {refresh_err}"
+                )
+                raise ValueError(
+                    "Parent chain must have valid id and root_chain_id, refresh failed."
+                ) from refresh_err
 
         new_chain = DiscoveryChain(
             parent_chain_id=parent_chain.id,
-            root_chain_id=parent_chain.root_chain_id, # Inherit root from parent
-            level=parent_chain.level + 1, # Increment hierarchy level
+            root_chain_id=parent_chain.root_chain_id,  # Inherit root from parent
+            level=parent_chain.level + 1,  # Increment hierarchy level
             discovery_type=discovery_type,
             parameters=parameters,
-            status='PENDING', # Initial status
-            started_at=datetime.now(timezone.utc)
+            status="PENDING",  # Initial status
+            started_at=datetime.now(timezone.utc),
         )
         try:
             db.add(new_chain)
-            db.flush() # Ensure the chain object has its ID assigned before returning
-            db.refresh(new_chain) # Load any server-defaults
-            self.logger.info(f"Created and flushed child chain {new_chain.id} under {parent_chain.id}")
+            db.flush()  # Ensure the chain object has its ID assigned before returning
+            db.refresh(new_chain)  # Load any server-defaults
+            self.logger.info(
+                f"Created and flushed child chain {new_chain.id} under {parent_chain.id}"
+            )
             return new_chain
         except SQLAlchemyError as e:
             self.logger.error(
                 f"Error creating/flushing child discovery chain under {parent_chain.id}: {e}",
-                exc_info=True
+                exc_info=True,
             )
             # Let the caller handle transaction rollback as this might be part of a larger operation
             raise
 
     def _update_chain_status(
-        self, db: Session, chain: DiscoveryChain, status: str, timestamp: Optional[datetime] = None
+        self,
+        db: Session,
+        chain: DiscoveryChain,
+        status: str,
+        timestamp: Optional[datetime] = None,
     ) -> DiscoveryChain:
         """
         Internal helper to update the status of a DiscoveryChain and optionally set completion time.
@@ -190,26 +210,33 @@ class DiscoveryChainService(BaseService):
         self.logger.debug(f"Updating chain {chain.id} status to {status}")
         chain.status = status
         if timestamp:
-             # Set completion timestamp only for terminal states
-             if status in ['COMPLETED', 'FAILED', 'PARTIAL']:
-                  chain.completed_at = timestamp
+            # Set completion timestamp only for terminal states
+            if status in ["COMPLETED", "FAILED", "PARTIAL"]:
+                chain.completed_at = timestamp
         try:
-            db.add(chain) # Add to session to ensure changes are tracked
-            db.flush()    # Persist status change immediately
-            db.refresh(chain) # Refresh to get accurate state from DB, including potential triggers
+            db.add(chain)  # Add to session to ensure changes are tracked
+            db.flush()  # Persist status change immediately
+            db.refresh(
+                chain
+            )  # Refresh to get accurate state from DB, including potential triggers
             return chain
         except SQLAlchemyError as e:
-             self.logger.error(f"Error updating/flushing chain {chain.id} status to {status}: {e}", exc_info=True)
-             # Let the caller handle transaction rollback
-             raise
+            self.logger.error(
+                f"Error updating/flushing chain {chain.id} status to {status}: {e}",
+                exc_info=True,
+            )
+            # Let the caller handle transaction rollback
+            raise
 
     def start_chain(self, db: Session, chain: DiscoveryChain) -> DiscoveryChain:
         """Sets the chain status to 'PROCESSING'."""
-        return self._update_chain_status(db, chain, 'PROCESSING')
+        return self._update_chain_status(db, chain, "PROCESSING")
 
     def complete_chain(self, db: Session, chain: DiscoveryChain) -> DiscoveryChain:
         """Sets the chain status to 'COMPLETED' and records the completion time."""
-        return self._update_chain_status(db, chain, 'COMPLETED', datetime.now(timezone.utc))
+        return self._update_chain_status(
+            db, chain, "COMPLETED", datetime.now(timezone.utc)
+        )
 
     def fail_chain(
         self, db: Session, chain: DiscoveryChain, error_message: Optional[str] = None
@@ -225,9 +252,13 @@ class DiscoveryChainService(BaseService):
         Returns:
             The updated DiscoveryChain object.
         """
-        self.logger.error(f"Discovery chain {chain.id} failed. Type: {chain.discovery_type}. Error: {error_message or 'N/A'}")
+        self.logger.error(
+            f"Discovery chain {chain.id} failed. Type: {chain.discovery_type}. Error: {error_message or 'N/A'}"
+        )
         # Future enhancement: could store error_message in chain.parameters or a dedicated field
-        return self._update_chain_status(db, chain, 'FAILED', datetime.now(timezone.utc))
+        return self._update_chain_status(
+            db, chain, "FAILED", datetime.now(timezone.utc)
+        )
 
     def associate_entity(
         self, db: Session, chain: DiscoveryChain, entity: Any, is_direct: bool = True
@@ -256,49 +287,65 @@ class DiscoveryChainService(BaseService):
         """
         if entity is None:
             # Cannot associate a non-existent entity
-            self.logger.warning(f"Attempted to associate a None entity to chain {chain.id}. Skipping.")
+            self.logger.warning(
+                f"Attempted to associate a None entity to chain {chain.id}. Skipping."
+            )
             return None
 
         entity_type = entity.__class__.__name__
         # Define entity types that use composite primary keys and don't have a single 'id' column
         # --- ADDED WorkTopic to this list ---
-        association_types_no_id = ('Authorship', 'Affiliation', 'WorkCitation', 'RepositoryContributorAssociation', 'WorkTopic')
+        association_types_no_id = (
+            "Authorship",
+            "Affiliation",
+            "WorkCitation",
+            "RepositoryContributorAssociation",
+            "WorkTopic",
+        )
         # --- END ADD ---
-        entity_id: Optional[int] = None # Standard integer ID
+        entity_id: Optional[int] = None  # Standard integer ID
 
         if entity_type not in association_types_no_id:
             # For standard entities, get the primary key ID
-            entity_id = getattr(entity, 'id', None)
+            entity_id = getattr(entity, "id", None)
             if entity_id is None:
                 # Ensure the entity has been flushed and has an ID before associating
-                self.logger.error(f"Attempted to associate entity of type {entity_type} without an ID to chain {chain.id}")
-                raise ValueError(f"Entity {entity_type} must have an ID before association.")
+                self.logger.error(
+                    f"Attempted to associate entity of type {entity_type} without an ID to chain {chain.id}"
+                )
+                raise ValueError(
+                    f"Entity {entity_type} must have an ID before association."
+                )
         # --- Added else block for logging composite PK types ---
         else:
-             # For types with composite keys, create a representation for logging
-             pk_repr = '[CompositePK]'
-             try:
-                 # Introspect SQLAlchemy mapper to find primary key columns
-                 if hasattr(entity, '__mapper__'):
-                     pk_cols = [c.name for c in entity.__mapper__.primary_key]
-                     pk_vals = [getattr(entity, c, None) for c in pk_cols]
-                     pk_repr = ', '.join(f"{k}={v}" for k, v in zip(pk_cols, pk_vals))
-                 self.logger.debug(f"Associating entity type {entity_type} ({pk_repr}) which uses composite PK.")
-             except Exception as pk_log_err:
-                self.logger.warning(f"Could not fully represent composite PK for {entity_type}: {pk_log_err}")
+            # For types with composite keys, create a representation for logging
+            pk_repr = "[CompositePK]"
+            try:
+                # Introspect SQLAlchemy mapper to find primary key columns
+                if hasattr(entity, "__mapper__"):
+                    pk_cols = [c.name for c in entity.__mapper__.primary_key]
+                    pk_vals = [getattr(entity, c, None) for c in pk_cols]
+                    pk_repr = ", ".join(f"{k}={v}" for k, v in zip(pk_cols, pk_vals))
+                self.logger.debug(
+                    f"Associating entity type {entity_type} ({pk_repr}) which uses composite PK."
+                )
+            except Exception as pk_log_err:
+                self.logger.warning(
+                    f"Could not fully represent composite PK for {entity_type}: {pk_log_err}"
+                )
         # --- End Added ---
 
-
         if chain.id is None:
-             # The chain must exist in the DB before associations can be made
-             raise ValueError("DiscoveryChain must have an ID before association.")
+            # The chain must exist in the DB before associations can be made
+            raise ValueError("DiscoveryChain must have an ID before association.")
 
         # --- Adjusted Log Message ---
         # Use the appropriate identifier representation for logging
         entity_id_repr = entity_id if entity_id is not None else pk_repr
-        self.logger.debug(f"Associating {entity_type} ({entity_id_repr}) with chain {chain.id} (direct={is_direct})")
+        self.logger.debug(
+            f"Associating {entity_type} ({entity_id_repr}) with chain {chain.id} (direct={is_direct})"
+        )
         # --- End Adjusted ---
-
 
         # Prepare filters to check if this association already exists
         lookup_filters: Dict[str, Any] = {
@@ -307,7 +354,7 @@ class DiscoveryChainService(BaseService):
         }
         # Only filter by entity_id if it's applicable (not a composite PK type)
         if entity_type not in association_types_no_id:
-             lookup_filters["entity_id"] = entity_id
+            lookup_filters["entity_id"] = entity_id
         # For composite PK types, we rely on the combination of chain_id and entity_type
         # being unique for the purpose of this lookup. If more complex uniqueness checks
         # involving composite keys are needed, this logic would need enhancement.
@@ -316,42 +363,44 @@ class DiscoveryChainService(BaseService):
         association_data = {
             "discovery_chain_id": chain.id,
             "entity_type": entity_type,
-            "entity_id": entity_id, # Store None for composite PK types in this column
+            "entity_id": entity_id,  # Store None for composite PK types in this column
             "is_direct_discovery": is_direct,
         }
 
         try:
-             # --- Modified Lookup Logic ---
-             # Build the query based on filters
-             query = db.query(EntityDiscoveryAssociation).filter_by(
-                 discovery_chain_id=lookup_filters["discovery_chain_id"],
-                 entity_type=lookup_filters["entity_type"]
-             )
-             # Add entity_id filter only if applicable
-             if "entity_id" in lookup_filters:
-                 query = query.filter(EntityDiscoveryAssociation.entity_id == lookup_filters["entity_id"])
-             else:
-                 # For composite PK types, ensure we match records where entity_id IS NULL
-                 query = query.filter(EntityDiscoveryAssociation.entity_id.is_(None))
+            # --- Modified Lookup Logic ---
+            # Build the query based on filters
+            query = db.query(EntityDiscoveryAssociation).filter_by(
+                discovery_chain_id=lookup_filters["discovery_chain_id"],
+                entity_type=lookup_filters["entity_type"],
+            )
+            # Add entity_id filter only if applicable
+            if "entity_id" in lookup_filters:
+                query = query.filter(
+                    EntityDiscoveryAssociation.entity_id == lookup_filters["entity_id"]
+                )
+            else:
+                # For composite PK types, ensure we match records where entity_id IS NULL
+                query = query.filter(EntityDiscoveryAssociation.entity_id.is_(None))
 
-             existing_assoc = query.first()
-             # --- End Modified Lookup ---
+            existing_assoc = query.first()
+            # --- End Modified Lookup ---
 
-             if existing_assoc:
-                  # Avoid creating duplicate associations
-                  self.logger.debug("Association already exists, skipping creation.")
-                  return existing_assoc
+            if existing_assoc:
+                # Avoid creating duplicate associations
+                self.logger.debug("Association already exists, skipping creation.")
+                return existing_assoc
 
-             # Create and persist the new association
-             new_assoc = EntityDiscoveryAssociation(**association_data)
-             db.add(new_assoc)
-             db.flush() # Assign primary key to the association record itself
-             db.refresh(new_assoc) # Load defaults like created_at
-             return new_assoc
+            # Create and persist the new association
+            new_assoc = EntityDiscoveryAssociation(**association_data)
+            db.add(new_assoc)
+            db.flush()  # Assign primary key to the association record itself
+            db.refresh(new_assoc)  # Load defaults like created_at
+            return new_assoc
         except SQLAlchemyError as e:
-             self.logger.error(
-                  f"Error creating/flushing {entity_type} ({entity_id_repr}) association with chain {chain.id}: {e}",
-                  exc_info=True
-             )
-             # Let the caller handle transaction rollback
-             raise
+            self.logger.error(
+                f"Error creating/flushing {entity_type} ({entity_id_repr}) association with chain {chain.id}: {e}",
+                exc_info=True,
+            )
+            # Let the caller handle transaction rollback
+            raise

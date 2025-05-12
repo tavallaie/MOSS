@@ -1,35 +1,39 @@
 # services/ingestion_service.py
-import time
 import logging
+import time
+
+from db.database import get_db_session
+from models.models import DiscoveryEvent, Repository
+from services.discovery import start_new_chain
 from services.github_ingestion import ingest_github_repository
 from services.openalex_ingestion import ingest_openalex_data
 from utils.repo_finder import search_repositories_by_date_ranges
-from db.database import get_db_session
-from models.models import Repository, DiscoveryEvent
-from services.discovery import start_new_chain
 
 logger = logging.getLogger(__name__)
 
+
 def get_ingestion_counts():
-    from models.models import Repository, OpenAlexWork, User, Organization, DOI
+    from models.models import DOI, OpenAlexWork, Organization, Repository, User
+
     with get_db_session() as session:
         counts = {
-            "repositories": session.query(Repository).count(),
-            "works": session.query(OpenAlexWork).count(),
-            "people": session.query(User).count(),
-            "organizations": session.query(Organization).count(),
-            "dois": session.query(DOI).count()
+            'repositories': session.query(Repository).count(),
+            'works': session.query(OpenAlexWork).count(),
+            'people': session.query(User).count(),
+            'organizations': session.query(Organization).count(),
+            'dois': session.query(DOI).count(),
         }
     return counts
 
+
 def print_ingestion_summary(pre_counts=None, post_counts=None):
     total_counts = post_counts if post_counts is not None else get_ingestion_counts()
-    summary = "\nIngestion Summary:\n"
-    summary += f"Total repositories in database: {total_counts['repositories']}\n"
-    summary += f"Total works in database: {total_counts['works']}\n"
-    summary += f"Total people in database: {total_counts['people']}\n"
-    summary += f"Total organizations in database: {total_counts['organizations']}\n"
-    summary += f"Total DOIs in database: {total_counts['dois']}\n"
+    summary = '\nIngestion Summary:\n'
+    summary += f'Total repositories in database: {total_counts["repositories"]}\n'
+    summary += f'Total works in database: {total_counts["works"]}\n'
+    summary += f'Total people in database: {total_counts["people"]}\n'
+    summary += f'Total organizations in database: {total_counts["organizations"]}\n'
+    summary += f'Total DOIs in database: {total_counts["dois"]}\n'
 
     if pre_counts is not None:
         run_repos = total_counts['repositories'] - pre_counts['repositories']
@@ -37,13 +41,14 @@ def print_ingestion_summary(pre_counts=None, post_counts=None):
         run_people = total_counts['people'] - pre_counts['people']
         run_orgs = total_counts['organizations'] - pre_counts['organizations']
         run_dois = total_counts['dois'] - pre_counts['dois']
-        summary += "\nAdded during most recent run:\n"
-        summary += f"Repositories added: {run_repos}\n"
-        summary += f"Works added: {run_works}\n"
-        summary += f"People added: {run_people}\n"
-        summary += f"Organizations added: {run_orgs}\n"
-        summary += f"DOIs added: {run_dois}\n"
+        summary += '\nAdded during most recent run:\n'
+        summary += f'Repositories added: {run_repos}\n'
+        summary += f'Works added: {run_works}\n'
+        summary += f'People added: {run_people}\n'
+        summary += f'Organizations added: {run_orgs}\n'
+        summary += f'DOIs added: {run_dois}\n'
     return summary
+
 
 def check_repository_exists(owner, repo_name):
     """
@@ -51,9 +56,10 @@ def check_repository_exists(owner, repo_name):
     Returns the Repository object if found, None otherwise.
     """
     with get_db_session() as session:
-        full_name = f"{owner}/{repo_name}"
+        full_name = f'{owner}/{repo_name}'
         repo = session.query(Repository).filter_by(full_name=full_name).first()
         return repo
+
 
 def get_discovery_events(repo_id):
     """
@@ -61,11 +67,17 @@ def get_discovery_events(repo_id):
     Returns a list of DiscoveryEvent objects.
     """
     with get_db_session() as session:
-        events = session.query(DiscoveryEvent).filter(
-            DiscoveryEvent.object_type == 'Repository',
-            DiscoveryEvent.object_id == str(repo_id)
-        ).order_by(DiscoveryEvent.timestamp).all()
+        events = (
+            session.query(DiscoveryEvent)
+            .filter(
+                DiscoveryEvent.object_type == 'Repository',
+                DiscoveryEvent.object_id == str(repo_id),
+            )
+            .order_by(DiscoveryEvent.timestamp)
+            .all()
+        )
         return events
+
 
 def get_repository_doi_counts(repo_id):
     """
@@ -77,9 +89,15 @@ def get_repository_doi_counts(repo_id):
             return 0
         return len(repo.dois)
 
-def ingest_repository(owner: str, repo_name: str, token: str = None,
-                      discovery_method: str = "direct_ingestion",
-                      discovery_details: str = None, trigger_input: str = None):
+
+def ingest_repository(
+    owner: str,
+    repo_name: str,
+    token: str = None,
+    discovery_method: str = 'direct_ingestion',
+    discovery_details: str = None,
+    trigger_input: str = None,
+):
     """
     Ingest a repository by delegating GitHub ingestion to the dedicated module and then
     processing OpenAlex data.
@@ -87,7 +105,7 @@ def ingest_repository(owner: str, repo_name: str, token: str = None,
     """
     # Generate a chain ID for this ingestion session
     chain_id = start_new_chain()
-    
+
     with get_db_session() as session:
         repository, base_branch_id = ingest_github_repository(
             session=session,
@@ -97,7 +115,7 @@ def ingest_repository(owner: str, repo_name: str, token: str = None,
             discovery_method=discovery_method,
             discovery_details=discovery_details,
             trigger_input=trigger_input,
-            chain_id=chain_id
+            chain_id=chain_id,
         )
 
         ingest_openalex_data(
@@ -108,25 +126,28 @@ def ingest_repository(owner: str, repo_name: str, token: str = None,
             trigger_input=trigger_input,
             chain_id=chain_id,
             branch_id=base_branch_id,
-            keyword=None if discovery_method != "keyword_ingestion" else trigger_input
+            keyword=None if discovery_method != 'keyword_ingestion' else trigger_input,
         )
-    
-    logging.info(f"Repository {repository.full_name} ingested successfully.")
+
+    logging.info(f'Repository {repository.full_name} ingested successfully.')
     return repository
 
-def search_and_ingest_repositories(token: str, keywords: str, trigger_input: str = None):
+
+def search_and_ingest_repositories(
+    token: str, keywords: str, trigger_input: str = None
+):
     from clients.github_client import GitHubClient
-    
+
     client = GitHubClient(token=token, default_timeout=30)
     repositories_data = search_repositories_by_date_ranges(client, keywords)
     ingested = []
-    
+
     # Create a single chain ID for this search session
     chain_id = start_new_chain()
 
     for repo_data in repositories_data:
-        owner = repo_data["owner"]["login"]
-        repo_name = repo_data["name"]
+        owner = repo_data['owner']['login']
+        repo_name = repo_data['name']
         detailed_discovery = f"Repository discovered via keyword search '{keywords}'"
 
         try:
@@ -136,27 +157,27 @@ def search_and_ingest_repositories(token: str, keywords: str, trigger_input: str
                     owner=owner,
                     repo_name=repo_name,
                     token=token,
-                    discovery_method="keyword_ingestion",
+                    discovery_method='keyword_ingestion',
                     discovery_details=detailed_discovery,
                     trigger_input=trigger_input,
                     chain_id=chain_id,
-                    keyword=keywords
+                    keyword=keywords,
                 )
 
                 ingest_openalex_data(
                     session=session,
                     repository=repository,
-                    discovery_method="keyword_ingestion",
+                    discovery_method='keyword_ingestion',
                     discovery_details=detailed_discovery,
                     trigger_input=trigger_input,
                     chain_id=chain_id,
                     branch_id=base_branch_id,
-                    keyword=keywords
+                    keyword=keywords,
                 )
-                
+
             ingested.append(repository)
         except Exception as e:
-            logging.error(f"Error ingesting {owner}/{repo_name}: {e}")
+            logging.error(f'Error ingesting {owner}/{repo_name}: {e}')
 
         time.sleep(1)
 

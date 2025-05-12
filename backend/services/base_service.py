@@ -6,6 +6,7 @@ Provides a foundational class for service layer components within the applicatio
 
 import logging
 
+
 class BaseService:
     """
     Base class for service layer components.
@@ -14,6 +15,7 @@ class BaseService:
     Subclasses should implement specific business logic and typically receive
     dependencies (like repositories or other services) during initialization.
     """
+
     # Initialize a logger specific to the service instance, named after the module.
     logger = logging.getLogger(__name__)
 

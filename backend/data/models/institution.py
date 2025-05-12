@@ -8,7 +8,8 @@ linked to code repositories.
 """
 
 import logging
-from typing import List, Optional, TYPE_CHECKING, Dict, Any
+from typing import List, Optional, TYPE_CHECKING
+
 # Import JSONB type for handling JSON data in PostgreSQL
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import String, Index
@@ -22,9 +23,10 @@ from .base import BaseModel
 
 # Use TYPE_CHECKING to prevent circular imports for type hints
 if TYPE_CHECKING:
-    from .affiliation import Affiliation # For the relationship to author affiliations
+    from .affiliation import Affiliation  # For the relationship to author affiliations
 
 logger = logging.getLogger(__name__)
+
 
 class Institution(BaseModel, Base):
     """
@@ -48,16 +50,21 @@ class Institution(BaseModel, Base):
         affiliations: One-to-many relationship linking this institution to Affiliation
                       records (representing author affiliations on works).
     """
+
     __tablename__ = "institutions"
 
     # --- Identifiers ---
     # Key identifiers linking this record to external systems.
 
     # OpenAlex unique ID. Crucial for linking with OpenAlex publication data. Indexed.
-    openalex_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    openalex_id: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
 
     # Research Organization Registry ID. A globally unique and persistent identifier. Indexed.
-    ror: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True, nullable=True)
+    ror: Mapped[Optional[str]] = mapped_column(
+        String, unique=True, index=True, nullable=True
+    )
 
     # --- Descriptive Details ---
     # Core information about the institution.
@@ -76,8 +83,8 @@ class Institution(BaseModel, Base):
     # This facilitates linking repositories or contributors directly via known orgs.
     # Populated manually or via specific discovery/matching processes.
     github_organization_logins: Mapped[Optional[List[str]]] = mapped_column(
-        JSONB, # Use JSONB for efficient storage and querying of list data in PostgreSQL.
-        nullable=True
+        JSONB,  # Use JSONB for efficient storage and querying of list data in PostgreSQL.
+        nullable=True,
     )
 
     # --- Relationships ---
@@ -92,8 +99,7 @@ class Institution(BaseModel, Base):
     # cascade behavior is always desired, as it removes authorship affiliation data.
     # An alternative might be to set the FK to NULL or prevent deletion if affiliations exist.
     affiliations: Mapped[List["Affiliation"]] = relationship(
-        back_populates="institution",
-        cascade="all, delete-orphan"
+        back_populates="institution", cascade="all, delete-orphan"
     )
 
     # --- Table Arguments ---
@@ -101,15 +107,17 @@ class Institution(BaseModel, Base):
     # Indexes on unique columns are often created automatically but defining them here
     # provides clarity and central management.
     __table_args__ = (
-        Index('ix_institutions_openalex_id', 'openalex_id'), # Index on OpenAlex ID
-        Index('ix_institutions_ror', 'ror'),                 # Index on ROR ID
-        Index('ix_institutions_display_name', 'display_name'),# Index on name for searching
-        Index('ix_institutions_type', 'type'),               # Index for filtering by type
+        Index("ix_institutions_openalex_id", "openalex_id"),  # Index on OpenAlex ID
+        Index("ix_institutions_ror", "ror"),  # Index on ROR ID
+        Index(
+            "ix_institutions_display_name", "display_name"
+        ),  # Index on name for searching
+        Index("ix_institutions_type", "type"),  # Index for filtering by type
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Uses getattr for id in case the instance isn't flushed yet
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         ror_repr = f", ror={self.ror}" if self.ror else ""
         return f"<Institution(id={obj_id}, name='{self.display_name}'{ror_repr})>"

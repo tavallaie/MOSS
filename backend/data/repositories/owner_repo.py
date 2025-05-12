@@ -11,12 +11,13 @@ import logging
 from typing import Optional, Dict, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError # General SQLAlchemy exception
+from sqlalchemy.exc import SQLAlchemyError  # General SQLAlchemy exception
 
 from .base_repository import BaseRepository
-from backend.data.models import Owner # The specific SQLAlchemy model
+from backend.data.models import Owner  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class OwnerRepository(BaseRepository[Owner]):
     """
@@ -52,13 +53,22 @@ class OwnerRepository(BaseRepository[Owner]):
         logger.debug(f"Getting Owner by github_id: {github_id}")
         # Session activity check for debugging transactional issues.
         if not self.db.is_active:
-            logger.warning(f"Session is inactive in get_by_github_id for Owner GH ID {github_id}")
+            logger.warning(
+                f"Session is inactive in get_by_github_id for Owner GH ID {github_id}"
+            )
             return None
         try:
             # Standard query filtering by the github_id column.
-            return self.db.query(self.model).filter(self.model.github_id == github_id).first()
+            return (
+                self.db.query(self.model)
+                .filter(self.model.github_id == github_id)
+                .first()
+            )
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_by_github_id for Owner {github_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_by_github_id for Owner {github_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def get_by_login(self, *, login: str) -> Optional[Owner]:
@@ -76,14 +86,19 @@ class OwnerRepository(BaseRepository[Owner]):
         """
         logger.debug(f"Getting Owner by login: {login}")
         if not self.db.is_active:
-             logger.warning(f"Session is inactive in get_by_login for Owner login '{login}'")
-             return None
+            logger.warning(
+                f"Session is inactive in get_by_login for Owner login '{login}'"
+            )
+            return None
         try:
             # Query filtering by the login column.
             return self.db.query(self.model).filter(self.model.login == login).first()
         except SQLAlchemyError as e:
-             logger.error(f"SQLAlchemyError during get_by_login for Owner {login}: {e}", exc_info=True)
-             raise
+            logger.error(
+                f"SQLAlchemyError during get_by_login for Owner {login}: {e}",
+                exc_info=True,
+            )
+            raise
 
     def get_or_create_by_github_id(
         self, *, github_id: int, obj_in_data: Dict[str, Any]
@@ -123,10 +138,14 @@ class OwnerRepository(BaseRepository[Owner]):
                              The caller should handle rollback.
         """
         if not github_id:
-             raise ValueError("github_id cannot be empty for Owner get_or_create")
+            raise ValueError("github_id cannot be empty for Owner get_or_create")
         if not self.db.is_active:
-             logger.error("Session is inactive at start of get_or_create_by_github_id for Owner.")
-             raise RuntimeError("Database session is inactive, cannot perform get_or_create.")
+            logger.error(
+                "Session is inactive at start of get_or_create_by_github_id for Owner."
+            )
+            raise RuntimeError(
+                "Database session is inactive, cannot perform get_or_create."
+            )
 
         try:
             # --- Step 1: Query First ---
@@ -134,14 +153,20 @@ class OwnerRepository(BaseRepository[Owner]):
 
             if db_obj:
                 # --- Step 2a: Record Found - Check for Updates ---
-                logger.debug(f"Found existing Owner GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates.")
+                logger.debug(
+                    f"Found existing Owner GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates."
+                )
                 updated = False
-                new_login = obj_in_data.get('login')
+                new_login = obj_in_data.get("login")
 
                 # Check if login needs update and handle potential uniqueness conflicts.
                 if new_login and db_obj.login != new_login:
-                    if not self.db.is_active: # Re-check session state before next query
-                        raise RuntimeError("Session became inactive before login conflict check during owner update.")
+                    if (
+                        not self.db.is_active
+                    ):  # Re-check session state before next query
+                        raise RuntimeError(
+                            "Session became inactive before login conflict check during owner update."
+                        )
                     existing_login_owner = self.get_by_login(login=new_login)
                     if existing_login_owner and existing_login_owner.id != db_obj.id:
                         # Log the conflict but skip the update to avoid DB error.
@@ -151,47 +176,64 @@ class OwnerRepository(BaseRepository[Owner]):
                             f"because it's already assigned to Owner DB ID {existing_login_owner.id}. Skipping login update."
                         )
                     else:
-                        logger.info(f"Updating login for Owner {db_obj.id} from '{db_obj.login}' to '{new_login}'")
+                        logger.info(
+                            f"Updating login for Owner {db_obj.id} from '{db_obj.login}' to '{new_login}'"
+                        )
                         db_obj.login = new_login
                         updated = True
 
                 # Check and update other fields if they differ.
-                if obj_in_data.get('type') is not None and db_obj.type != obj_in_data.get('type'):
-                    db_obj.type = obj_in_data['type']
+                if obj_in_data.get(
+                    "type"
+                ) is not None and db_obj.type != obj_in_data.get("type"):
+                    db_obj.type = obj_in_data["type"]
                     updated = True
-                if obj_in_data.get('avatar_url') is not None and db_obj.avatar_url != obj_in_data.get('avatar_url'):
-                     db_obj.avatar_url = obj_in_data['avatar_url']
-                     updated = True
-                if obj_in_data.get('html_url') is not None and db_obj.html_url != obj_in_data.get('html_url'):
-                     db_obj.html_url = obj_in_data['html_url']
-                     updated = True
+                if obj_in_data.get(
+                    "avatar_url"
+                ) is not None and db_obj.avatar_url != obj_in_data.get("avatar_url"):
+                    db_obj.avatar_url = obj_in_data["avatar_url"]
+                    updated = True
+                if obj_in_data.get(
+                    "html_url"
+                ) is not None and db_obj.html_url != obj_in_data.get("html_url"):
+                    db_obj.html_url = obj_in_data["html_url"]
+                    updated = True
                 # Add checks for other relevant fields...
 
                 if updated:
-                    self.db.add(db_obj) # Add to session to mark dirty for commit.
-                    logger.info(f"Owner {db_obj.id} marked for update in the current session.")
+                    self.db.add(db_obj)  # Add to session to mark dirty for commit.
+                    logger.info(
+                        f"Owner {db_obj.id} marked for update in the current session."
+                    )
                     # Optional flush/refresh if caller needs immediate DB state.
                     # self.db.flush()
                     # self.db.refresh(db_obj)
-                return db_obj # Return the existing (potentially updated) owner.
+                return db_obj  # Return the existing (potentially updated) owner.
 
             else:
                 # --- Step 2b: Record Not Found - Create New ---
-                logger.debug(f"Owner with GH ID {github_id} not found. Preparing to create new.")
+                logger.debug(
+                    f"Owner with GH ID {github_id} not found. Preparing to create new."
+                )
                 # Ensure the github_id is included in the data used for creation.
                 obj_in_data["github_id"] = github_id
-                new_obj = self.model(**obj_in_data) # Create a new model instance.
-                self.db.add(new_obj) # Add the new object to the session.
+                new_obj = self.model(**obj_in_data)  # Create a new model instance.
+                self.db.add(new_obj)  # Add the new object to the session.
                 # Flush the session: sends INSERT, assigns PK, checks constraints.
                 self.db.flush()
                 # Refresh the instance: loads DB-generated values (e.g., defaults).
                 self.db.refresh(new_obj)
-                logger.info(f"Successfully created and flushed new Owner GH ID {github_id} (DB ID: {new_obj.id})")
-                return new_obj # Return the newly created owner.
+                logger.info(
+                    f"Successfully created and flushed new Owner GH ID {github_id} (DB ID: {new_obj.id})"
+                )
+                return new_obj  # Return the newly created owner.
 
         except SQLAlchemyError as e:
             # Log the error encountered during the get_or_create process.
-            logger.error(f"SQLAlchemyError during get_or_create for Owner GH ID {github_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_or_create for Owner GH ID {github_id}: {e}",
+                exc_info=True,
+            )
             # Critical: Do NOT rollback here. The caller manages the transaction.
             # self.db.rollback() # <-- Avoid rollback in repository methods.
-            raise # Re-raise the exception for the caller to handle.
+            raise  # Re-raise the exception for the caller to handle.

@@ -8,9 +8,7 @@ potentially, to the resolved scholarly Work it identifies.
 """
 
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import (
-    String, Integer, Text, ForeignKey, Index, UniqueConstraint
-)
+from sqlalchemy import String, Text, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 # Assuming Base and BaseModel are correctly defined elsewhere
@@ -22,6 +20,7 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .repository import Repository
     from .work import Work
+
 
 class DOIReference(BaseModel, Base):
     """
@@ -43,6 +42,7 @@ class DOIReference(BaseModel, Base):
         repository: Relationship back to the Repository object.
         work: Relationship back to the resolved Work object (or None).
     """
+
     __tablename__ = "doi_references"
 
     # --- Core DOI Information ---
@@ -58,7 +58,9 @@ class DOIReference(BaseModel, Base):
     )
     # Reference to the Work record if the DOI could be resolved. Nullable. Indexed.
     work_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("works.id"), index=True, nullable=True
+        ForeignKey("works.id"),
+        index=True,
+        nullable=True,
         # Nullable=True is crucial, as not all found DOIs might resolve
         # or correspond to Works currently in the database.
     )
@@ -89,20 +91,25 @@ class DOIReference(BaseModel, Base):
         # Ensure that the same DOI isn't recorded multiple times for the exact same file
         # within the same repository. This prevents duplicate entries from reappearing if
         # a file is scanned multiple times without changes.
-        UniqueConstraint('repository_id', 'doi', 'source_file', name='uq_repo_doi_source'),
-
+        UniqueConstraint(
+            "repository_id", "doi", "source_file", name="uq_repo_doi_source"
+        ),
         # Explicit indexes on individual columns often used in queries.
         # While some are already indexed due to FKs or the `index=True` flag,
         # defining them here provides a central place to manage table-level indexing.
-        Index('ix_doi_references_doi', 'doi'),
-        Index('ix_doi_references_repository_id', 'repository_id'),
-        Index('ix_doi_references_work_id', 'work_id'), # Indexing nullable FK can still be useful.
+        Index("ix_doi_references_doi", "doi"),
+        Index("ix_doi_references_repository_id", "repository_id"),
+        Index(
+            "ix_doi_references_work_id", "work_id"
+        ),  # Indexing nullable FK can still be useful.
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Uses getattr for id in case the instance isn't flushed yet
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         work_repr = f", work_id={self.work_id}" if self.work_id else ", work_id=None"
-        return (f"<DOIReference(id={obj_id}, doi='{self.doi}', "
-                f"repo_id={self.repository_id}{work_repr})>")
+        return (
+            f"<DOIReference(id={obj_id}, doi='{self.doi}', "
+            f"repo_id={self.repository_id}{work_repr})>"
+        )

@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 # Setup logger for this module.
 logger = logging.getLogger(__name__)
 
+
 def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
     """
     Parses a given URL string to extract GitHub owner and repository names.
@@ -51,24 +52,30 @@ def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
 
         # Validate the network location (domain). Must be 'github.com'.
         # Use case-insensitive comparison for robustness.
-        if parsed_url.netloc.lower() != 'github.com':
-            logger.warning(f"URL rejected: domain is not github.com ('{parsed_url.netloc}'). URL: {url}")
+        if parsed_url.netloc.lower() != "github.com":
+            logger.warning(
+                f"URL rejected: domain is not github.com ('{parsed_url.netloc}'). URL: {url}"
+            )
             return None
 
         # Process the path component of the URL.
         # 1. Remove leading/trailing slashes for consistent processing.
-        path = parsed_url.path.strip('/')
+        path = parsed_url.path.strip("/")
         # 2. Remove the '.git' suffix if present (case-insensitive).
-        if path.lower().endswith('.git'):
-            path = path[:-4] # Slice off the last 4 characters ('.git').
+        if path.lower().endswith(".git"):
+            path = path[:-4]  # Slice off the last 4 characters ('.git').
 
         # Split the cleaned path into segments using '/' as the delimiter.
-        parts = path.split('/')
+        parts = path.split("/")
 
         # Expect exactly two non-empty segments: the owner and the repository name.
-        if len(parts) == 2 and all(parts): # `all(parts)` checks for empty strings (e.g., 'owner//repo').
+        if len(parts) == 2 and all(
+            parts
+        ):  # `all(parts)` checks for empty strings (e.g., 'owner//repo').
             owner, repo = parts[0], parts[1]
-            logger.debug(f"Successfully parsed GitHub URL '{url}' -> owner='{owner}', repo='{repo}'")
+            logger.debug(
+                f"Successfully parsed GitHub URL '{url}' -> owner='{owner}', repo='{repo}'"
+            )
             return owner, repo
         else:
             # Log a warning if the path structure doesn't match owner/repo.
@@ -84,23 +91,24 @@ def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
         logger.error(f"Unexpected error parsing GitHub URL '{url}': {e}", exc_info=True)
         return None
 
+
 # --- Example Usage & Basic Tests ---
 # This block executes only when the script is run directly.
 # It serves as a basic verification of the parse_github_url function.
 if __name__ == "__main__":
     urls_to_test = [
-        "https://github.com/pallets/flask",          # Standard case
-        "https://github.com/pallets/flask/",         # Trailing slash
-        "https://github.com/pallets/flask.git",      # .git suffix
-        "http://github.com/pallets/flask",           # HTTP scheme
-        "HTTPS://GITHUB.COM/USER/REPO",              # Case variation
-        "https://github.com/django/django/tree/main", # Invalid structure (too many parts)
-        "https://gitlab.com/user/repo",              # Invalid domain
-        "https://github.com/just_owner",             # Invalid structure (too few parts)
-        "https://github.com//repo",                  # Invalid structure (empty owner part)
-        "invalid-url",                               # Not a URL
-        "",                                          # Empty string
-        None,                                        # None input
+        "https://github.com/pallets/flask",  # Standard case
+        "https://github.com/pallets/flask/",  # Trailing slash
+        "https://github.com/pallets/flask.git",  # .git suffix
+        "http://github.com/pallets/flask",  # HTTP scheme
+        "HTTPS://GITHUB.COM/USER/REPO",  # Case variation
+        "https://github.com/django/django/tree/main",  # Invalid structure (too many parts)
+        "https://gitlab.com/user/repo",  # Invalid domain
+        "https://github.com/just_owner",  # Invalid structure (too few parts)
+        "https://github.com//repo",  # Invalid structure (empty owner part)
+        "invalid-url",  # Not a URL
+        "",  # Empty string
+        None,  # None input
     ]
 
     print("--- Testing GitHub URL Parsing ---")
