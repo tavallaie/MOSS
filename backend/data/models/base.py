@@ -9,11 +9,11 @@ consistent type definitions.
 
 # Keep these necessary imports for defining mapped columns and declared attributes
 from sqlalchemy.orm import Mapped
-from sqlalchemy.ext.declarative import declared_attr
 
 # Import the custom type definitions from the local 'types.py' file
 # This promotes consistency and reusability across different models.
 from .types import intpk, timestamp_created, timestamp_updated
+
 
 class BaseModel:
     """
@@ -31,6 +31,7 @@ class BaseModel:
         Models inheriting from this mixin should also inherit from the SQLAlchemy
         declarative base (e.g., `Base` from `database.py`).
     """
+
     # --- Common Columns ---
 
     # Define the primary key column.
@@ -46,7 +47,6 @@ class BaseModel:
     # `timestamp_updated` is an Annotated type likely defining DateTime(timezone=True)
     # with a server_default and an onupdate trigger to set the current time.
     updated_at: Mapped[timestamp_updated]
-
 
     # --- Optional: Automatic Tablename Generation ---
     # This commented-out section shows how you could automatically generate

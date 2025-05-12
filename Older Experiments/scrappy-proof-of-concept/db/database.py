@@ -1,9 +1,10 @@
 # db/database.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, configure_mappers
-from models.models import Base
-from config import DATABASE_URL  # Use centralized configuration
 from contextlib import contextmanager
+
+from config import DATABASE_URL  # Use centralized configuration
+from models.models import Base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import configure_mappers, sessionmaker
 
 # Create the engine using DATABASE_URL from config.py
 engine = create_engine(DATABASE_URL, echo=False)
@@ -11,12 +12,14 @@ engine = create_engine(DATABASE_URL, echo=False)
 # Create a configured Session class with expire_on_commit set to False
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
+
 def init_db():
     """
     Initialize the DB, ensuring that all tables (including versioning tables) are created.
     """
     configure_mappers()
     Base.metadata.create_all(bind=engine)
+
 
 @contextmanager
 def get_db_session():

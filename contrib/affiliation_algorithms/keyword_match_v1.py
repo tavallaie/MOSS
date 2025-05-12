@@ -9,9 +9,7 @@ and owner logins, assigning confidence scores based on the match location.
 """
 
 import sys
-import os
 import logging
-import re # Required for potential future regex use, though not used currently
 from pathlib import Path
 from typing import List, Dict, Any, Set
 
@@ -26,7 +24,10 @@ if str(project_root) not in sys.path:
 
 # Import necessary SQLAlchemy components for database interaction.
 from sqlalchemy import create_engine, or_, select, text
-from sqlalchemy.orm import sessionmaker, Session # `joinedload` was removed as it wasn't used.
+from sqlalchemy.orm import (
+    sessionmaker,
+    Session,
+)  # `joinedload` was removed as it wasn't used.
 
 # Import required MOSS data models.
 from backend.data.models import Repository, Owner
@@ -37,15 +38,15 @@ from backend.data.models import Repository, Owner
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)-5.5s] [keyword_match_v1] - %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)]
+    handlers=[logging.StreamHandler(sys.stderr)],
 )
 logger = logging.getLogger(__name__)
 
 
 def calculate_affiliations(
-    institution_id: int, # Included for consistency with the algorithm signature pattern.
+    institution_id: int,  # Included for consistency with the algorithm signature pattern.
     keywords: List[str],
-    db_conn_str: str
+    db_conn_str: str,
 ) -> List[Dict[str, Any]]:
     """
     Calculates repository-institution affiliations by matching keywords in DB metadata.
@@ -85,7 +86,9 @@ def calculate_affiliations(
         Returns an empty list if no keywords are provided, no matches are found,
         or an error occurs during processing.
     """
-    logger.info(f"Starting keyword_match_v1 for Institution ID {institution_id} with keywords: {keywords}")
+    logger.info(
+        f"Starting keyword_match_v1 for Institution ID {institution_id} with keywords: {keywords}"
+    )
     if not keywords:
         logger.warning("No keywords provided, returning empty list.")
         return []
@@ -105,11 +108,13 @@ def calculate_affiliations(
 
         # Prepare filter conditions for the database query.
         filter_conditions = []
-        lower_keywords = [kw.lower() for kw in keywords] # Use lowercase for case-insensitive matching
+        lower_keywords = [
+            kw.lower() for kw in keywords
+        ]  # Use lowercase for case-insensitive matching
 
         # Create ILIKE conditions for text fields (description, owner login).
         for kw in lower_keywords:
-            like_pattern = f"%{kw}%" # Pattern for substring matching
+            like_pattern = f"%{kw}%"  # Pattern for substring matching
             filter_conditions.append(Repository.description.ilike(like_pattern))
             filter_conditions.append(Owner.login.ilike(like_pattern))
 
@@ -118,22 +123,30 @@ def calculate_affiliations(
         # Note: This requires PostgreSQL and appropriate parameter binding.
         try:
             # Use `text()` to pass the array parameter securely.
-            topics_filter = Repository.topics.op('?|')(text('ARRAY[:keywords]'))
-            topics_filter = topics_filter.params(keywords=lower_keywords) # Bind the keyword list
+            topics_filter = Repository.topics.op("?|")(text("ARRAY[:keywords]"))
+            topics_filter = topics_filter.params(
+                keywords=lower_keywords
+            )  # Bind the keyword list
             filter_conditions.append(topics_filter)
         except Exception as jsonb_err:
-             # Log an error if the JSONB filter setup fails (e.g., unsupported DB, syntax error).
-             # The query will proceed without the topics filter in this case.
-             logger.error(f"Could not apply JSONB topics filter: {jsonb_err}. Proceeding without topic matching.")
+            # Log an error if the JSONB filter setup fails (e.g., unsupported DB, syntax error).
+            # The query will proceed without the topics filter in this case.
+            logger.error(
+                f"Could not apply JSONB topics filter: {jsonb_err}. Proceeding without topic matching."
+            )
 
         # Construct the final SQLAlchemy query.
         # Select necessary fields from Repository and its associated Owner.
         # Join Repository to Owner to access the owner's login name.
         # Apply the combined filter conditions using OR logic.
         stmt = (
-            select(Repository.id, Repository.description, Repository.topics, Owner.login)
-            .join(Repository.owner) # Perform the join to Owner table
-            .where(or_(*filter_conditions)) # Apply all filter conditions combined with OR
+            select(
+                Repository.id, Repository.description, Repository.topics, Owner.login
+            )
+            .join(Repository.owner)  # Perform the join to Owner table
+            .where(
+                or_(*filter_conditions)
+            )  # Apply all filter conditions combined with OR
         )
 
         logger.info("Executing database query for keyword matches...")
@@ -143,45 +156,53 @@ def calculate_affiliations(
 
         # Process the query results to assign confidence scores and format output.
         for row in query_results:
-            repo_id = row['id']
+            repo_id = row["id"]
 
             # Avoid processing the same repository multiple times if it matched on different fields/keywords.
             if repo_id in processed_repo_ids:
                 continue
 
-            description = row['description'] or "" # Handle potential None values
+            description = row["description"] or ""  # Handle potential None values
             # Topics can be None if the column is nullable or not populated.
-            topics = row['topics'] if row['topics'] is not None else []
-            owner_login = row['login'] or "" # Handle potential None values
+            topics = row["topics"] if row["topics"] is not None else []
+            owner_login = row["login"] or ""  # Handle potential None values
 
-            best_score = 0.0 # Track the highest confidence score for this repo
-            match_type = "none" # Track the type of match yielding the best score
-            matched_keyword = None # The specific keyword that resulted in the best match
-            matched_value = None # The value where the best match occurred (for evidence)
+            best_score = 0.0  # Track the highest confidence score for this repo
+            match_type = "none"  # Track the type of match yielding the best score
+            matched_keyword = (
+                None  # The specific keyword that resulted in the best match
+            )
+            matched_value = (
+                None  # The value where the best match occurred (for evidence)
+            )
 
             # Check for matches in fields, prioritizing owner login (highest confidence).
             for kw in lower_keywords:
                 if kw in owner_login.lower():
-                    if best_score < 0.9: # Assign owner login match score
+                    if best_score < 0.9:  # Assign owner login match score
                         best_score = 0.9
                         match_type = "owner_login"
                         matched_keyword = kw
-                        matched_value = owner_login # Store the login name as evidence
+                        matched_value = owner_login  # Store the login name as evidence
                     # Break inner loop once a match is found in this field for this repo.
                     # We only need one keyword match per field type for scoring.
                     break
 
             # Check description if no owner match was found (or if owner score is lower, though unlikely here).
             if best_score < 0.9:
-                 for kw in lower_keywords:
-                      if kw in description.lower():
-                          if best_score < 0.6: # Assign description match score
-                               best_score = 0.6
-                               match_type = "description"
-                               matched_keyword = kw
-                               # Provide a preview of the description as evidence.
-                               matched_value = description[:100] + "..." if len(description)>100 else description
-                          break # Break inner loop
+                for kw in lower_keywords:
+                    if kw in description.lower():
+                        if best_score < 0.6:  # Assign description match score
+                            best_score = 0.6
+                            match_type = "description"
+                            matched_keyword = kw
+                            # Provide a preview of the description as evidence.
+                            matched_value = (
+                                description[:100] + "..."
+                                if len(description) > 100
+                                else description
+                            )
+                        break  # Break inner loop
 
             # Check topics if no better match was found yet.
             if best_score < 0.6:
@@ -191,37 +212,41 @@ def calculate_affiliations(
                     lower_topics = [str(t).lower() for t in topics]
                     for kw in lower_keywords:
                         if kw in lower_topics:
-                            if best_score < 0.4: # Assign topic match score (lowest confidence)
+                            if (
+                                best_score < 0.4
+                            ):  # Assign topic match score (lowest confidence)
                                 best_score = 0.4
                                 match_type = "topic"
                                 matched_keyword = kw
-                                matched_value = topics # Store the original list of topics as evidence
-                            break # Break inner loop
+                                matched_value = topics  # Store the original list of topics as evidence
+                            break  # Break inner loop
                 else:
                     # Log a warning if topics data is not in the expected list format.
-                    logger.warning(f"Topics data for repo {repo_id} is not a list: {topics}")
-
+                    logger.warning(
+                        f"Topics data for repo {repo_id} is not a list: {topics}"
+                    )
 
             # If any keyword match was found (score > 0), add it to the results.
             if best_score > 0.0:
                 evidence = {
                     "match_type": match_type,
                     "matched_keyword": matched_keyword,
-                    "matched_value_preview": matched_value # Context where match occurred
+                    "matched_value_preview": matched_value,  # Context where match occurred
                 }
-                results.append({
-                    "repository_id": repo_id,
-                    "confidence_score": best_score,
-                    "evidence": evidence
-                })
+                results.append(
+                    {
+                        "repository_id": repo_id,
+                        "confidence_score": best_score,
+                        "evidence": evidence,
+                    }
+                )
                 # Mark this repository as processed.
                 processed_repo_ids.add(repo_id)
-
 
     except Exception as e:
         # Catch and log any unexpected errors during database query or processing.
         logger.exception(f"Error during keyword_match_v1 execution: {e}")
-        return [] # Return empty list on error
+        return []  # Return empty list on error
     finally:
         # Ensure database resources are released.
         if db:
@@ -231,8 +256,11 @@ def calculate_affiliations(
             engine.dispose()
             logger.info("Database engine disposed.")
 
-    logger.info(f"Keyword_match_v1 finished. Found {len(results)} affiliations for Inst {institution_id}.")
+    logger.info(
+        f"Keyword_match_v1 finished. Found {len(results)} affiliations for Inst {institution_id}."
+    )
     return results
+
 
 # --- Example Test Call Block ---
 # Intended for development/testing. Requires setting DATABASE_URL environment variable

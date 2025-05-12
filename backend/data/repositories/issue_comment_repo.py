@@ -14,9 +14,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from .base_repository import BaseRepository
-from backend.data.models import IssueComment # The specific SQLAlchemy model
+from backend.data.models import IssueComment  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class IssueCommentRepository(BaseRepository[IssueComment]):
     """
@@ -51,13 +52,22 @@ class IssueCommentRepository(BaseRepository[IssueComment]):
         logger.debug(f"Getting IssueComment by github_id: {github_id}")
         # Session activity check can aid in diagnosing transaction problems.
         if not self.db.is_active:
-            logger.warning(f"Session is inactive in get_by_github_id for IssueComment {github_id}")
+            logger.warning(
+                f"Session is inactive in get_by_github_id for IssueComment {github_id}"
+            )
             return None
         try:
             # Query the IssueComment model filtering by the unique github_id.
-            return self.db.query(self.model).filter(self.model.github_id == github_id).first()
+            return (
+                self.db.query(self.model)
+                .filter(self.model.github_id == github_id)
+                .first()
+            )
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_by_github_id for IssueComment {github_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_by_github_id for IssueComment {github_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def get_or_create_by_github_id(
@@ -95,48 +105,66 @@ class IssueCommentRepository(BaseRepository[IssueComment]):
         if not github_id:
             raise ValueError("github_id cannot be empty for IssueComment get_or_create")
         if not self.db.is_active:
-             logger.error(f"Session is inactive at start of get_or_create_by_github_id for IssueComment {github_id}.")
-             raise RuntimeError("Database session is inactive for IssueComment get_or_create.")
+            logger.error(
+                f"Session is inactive at start of get_or_create_by_github_id for IssueComment {github_id}."
+            )
+            raise RuntimeError(
+                "Database session is inactive for IssueComment get_or_create."
+            )
 
         # --- Step 1: Query First ---
         db_obj = self.get_by_github_id(github_id=github_id)
 
         if db_obj:
             # --- Step 2a: Record Found - Check for Updates ---
-            logger.debug(f"Found existing IssueComment GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates.")
+            logger.debug(
+                f"Found existing IssueComment GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates."
+            )
             updated = False
             # Check if comment body has changed.
-            if obj_in_data.get('body') is not None and db_obj.body != obj_in_data.get('body'):
-                db_obj.body = obj_in_data['body']
+            if obj_in_data.get("body") is not None and db_obj.body != obj_in_data.get(
+                "body"
+            ):
+                db_obj.body = obj_in_data["body"]
                 updated = True
             # Check if the GitHub update timestamp has changed.
-            if obj_in_data.get('gh_updated_at') is not None and db_obj.gh_updated_at != obj_in_data.get('gh_updated_at'):
-                db_obj.gh_updated_at = obj_in_data['gh_updated_at']
+            if obj_in_data.get(
+                "gh_updated_at"
+            ) is not None and db_obj.gh_updated_at != obj_in_data.get("gh_updated_at"):
+                db_obj.gh_updated_at = obj_in_data["gh_updated_at"]
                 updated = True
             # Add checks for other potentially updatable fields if needed.
 
             if updated:
-                 self.db.add(db_obj) # Mark the instance as dirty.
-                 logger.info(f"IssueComment {db_obj.id} marked for update in the current session.")
-                 # Optional flush/refresh could go here if caller needs immediate DB state.
-            return db_obj # Return the existing instance.
+                self.db.add(db_obj)  # Mark the instance as dirty.
+                logger.info(
+                    f"IssueComment {db_obj.id} marked for update in the current session."
+                )
+                # Optional flush/refresh could go here if caller needs immediate DB state.
+            return db_obj  # Return the existing instance.
         else:
             # --- Step 2b: Record Not Found - Create New ---
-            logger.debug(f"IssueComment GH ID {github_id} not found. Preparing to create new.")
+            logger.debug(
+                f"IssueComment GH ID {github_id} not found. Preparing to create new."
+            )
             # Validate required foreign keys for creation.
-            if 'issue_id' not in obj_in_data or 'user_id' not in obj_in_data:
-                raise ValueError(f"Missing required 'issue_id' or 'user_id' in obj_in_data for creating new IssueComment with GH ID {github_id}")
+            if "issue_id" not in obj_in_data or "user_id" not in obj_in_data:
+                raise ValueError(
+                    f"Missing required 'issue_id' or 'user_id' in obj_in_data for creating new IssueComment with GH ID {github_id}"
+                )
 
             # Ensure the github_id is included in the data for the new object.
             obj_in_data["github_id"] = github_id
-            new_obj = self.model(**obj_in_data) # Instantiate the new comment.
-            self.db.add(new_obj) # Add to the session.
+            new_obj = self.model(**obj_in_data)  # Instantiate the new comment.
+            self.db.add(new_obj)  # Add to the session.
             # Flush to send INSERT to DB, assign PK, check FK constraints.
             self.db.flush()
             # Refresh to load any DB-generated values.
             self.db.refresh(new_obj)
-            logger.info(f"Successfully created and flushed new IssueComment GH ID {github_id} (DB ID: {new_obj.id})")
-            return new_obj # Return the newly created instance.
+            logger.info(
+                f"Successfully created and flushed new IssueComment GH ID {github_id} (DB ID: {new_obj.id})"
+            )
+            return new_obj  # Return the newly created instance.
 
         # Note: SQLAlchemyError handling is implicitly covered by the BaseRepository
         # structure if the error occurs within self.get_by_github_id, or it will

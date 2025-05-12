@@ -7,9 +7,9 @@ This is often the most granular level of subject classification provided.
 """
 
 import logging
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import String, Text, Integer, ForeignKey, Index
+from sqlalchemy import String, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 # Assuming Base and BaseModel are correctly defined elsewhere
@@ -19,10 +19,11 @@ from .base import BaseModel
 
 # Use TYPE_CHECKING to prevent circular imports for type hints
 if TYPE_CHECKING:
-    from .subfield import Subfield # For the many-to-one relationship to Subfield
+    from .subfield import Subfield  # For the many-to-one relationship to Subfield
     # The relationship to WorkTopic (and thus Works) is defined in WorkTopic model.
 
 logger = logging.getLogger(__name__)
+
 
 class Topic(BaseModel, Base):
     """
@@ -43,13 +44,16 @@ class Topic(BaseModel, Base):
         subfield: Many-to-one relationship back to the parent Subfield object.
         # Note: The link to Works is via the WorkTopic association model.
     """
+
     __tablename__ = "topics"
 
     # --- Identifiers and Details ---
     # Core attributes defining the Topic based on OpenAlex data.
 
     # OpenAlex unique ID for the Topic. Indexed for fast lookups.
-    openalex_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    openalex_id: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
 
     # Human-readable name. Indexed for searching and display.
     display_name: Mapped[str] = mapped_column(String, index=True, nullable=False)
@@ -60,9 +64,9 @@ class Topic(BaseModel, Base):
     # --- Foreign Key to Parent Subfield ---
     # Establishes the hierarchical link within the subject classification.
     subfield_id: Mapped[int] = mapped_column(
-        ForeignKey("subfields.id", ondelete="CASCADE"), # Links to the parent Subfield
-        index=True, # Index for efficient lookup of Topics within a Subfield
-        nullable=False
+        ForeignKey("subfields.id", ondelete="CASCADE"),  # Links to the parent Subfield
+        index=True,  # Index for efficient lookup of Topics within a Subfield
+        nullable=False,
         # 'ondelete="CASCADE"' ensures that if a Subfield is deleted, all its child Topics
         # are also deleted. This propagates deletions up the hierarchy if a Domain/Field is removed.
     )
@@ -90,15 +94,15 @@ class Topic(BaseModel, Base):
     # Explicitly define indexes for optimized query performance.
     __table_args__ = (
         # Index on OpenAlex ID (unique already implies index, but explicit).
-        Index('ix_topics_openalex_id', 'openalex_id'),
+        Index("ix_topics_openalex_id", "openalex_id"),
         # Index on display name for text searches or sorting.
-        Index('ix_topics_display_name', 'display_name'),
+        Index("ix_topics_display_name", "display_name"),
         # Index on the foreign key to the parent Subfield (already indexed via column def, but explicit).
-        Index('ix_topics_subfield_id', 'subfield_id'),
+        Index("ix_topics_subfield_id", "subfield_id"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Safely access 'id' which comes from BaseModel
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         return f"<Topic(id={obj_id}, name='{self.display_name}', oa_id='{self.openalex_id}')>"

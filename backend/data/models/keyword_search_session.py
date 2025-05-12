@@ -6,24 +6,30 @@ and status of a single execution of a keyword-based repository search operation.
 """
 
 import logging
-from datetime import datetime # Required for DateTime type hints
-from typing import Optional, TYPE_CHECKING # TYPE_CHECKING if relationships are used
+from datetime import datetime  # Required for DateTime type hints
+from typing import Optional  # TYPE_CHECKING if relationships are used
 from sqlalchemy import (
-    String, Integer, Text, Index, DateTime, func # func needed for server_default
+    String,
+    Integer,
+    Text,
+    Index,
+    DateTime,
+    func,  # func needed for server_default
 )
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 # Assuming Base and BaseModel are correctly defined elsewhere
 # Adjust import paths as necessary
 from ..database import Base
-from .base import BaseModel # Inherits id, created_at, updated_at
-from .types import timestamp_nullable # Import custom type for nullable timestamp
+from .base import BaseModel  # Inherits id, created_at, updated_at
+from .types import timestamp_nullable  # Import custom type for nullable timestamp
 
 logger = logging.getLogger(__name__)
 
 # Uncomment if relationships to results (e.g., via KeywordRepositoryAssociation) are needed.
 # if TYPE_CHECKING:
 #    from .keyword_repository_association import KeywordRepositoryAssociation
+
 
 class KeywordSearchSession(BaseModel, Base):
     """
@@ -44,6 +50,7 @@ class KeywordSearchSession(BaseModel, Base):
         completed_at: Timestamp when the search task finished (successfully or failed).
         # repository_associations: Optional relationship to link to the actual results.
     """
+
     __tablename__ = "keyword_search_sessions"
 
     # --- Search Parameters ---
@@ -56,7 +63,7 @@ class KeywordSearchSession(BaseModel, Base):
 
     # Current status, e.g., 'PENDING', 'RUNNING', 'COMPLETED', 'FAILED'. Indexed for easy querying of task states.
     status: Mapped[str] = mapped_column(
-        String, index=True, nullable=False, default='PENDING'
+        String, index=True, nullable=False, default="PENDING"
     )
     # Stores the number of results found upon successful completion.
     results_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -89,14 +96,20 @@ class KeywordSearchSession(BaseModel, Base):
     __table_args__ = (
         # Index on the 'status' column is crucial for efficiently finding sessions
         # that are pending, running, failed, etc., for monitoring or retries.
-        Index('ix_keyword_search_sessions_status', 'status'),
+        Index("ix_keyword_search_sessions_status", "status"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Safely access 'id' which comes from BaseModel
-        repr_id = getattr(self, 'id', None)
+        repr_id = getattr(self, "id", None)
         # Truncate long keyword strings for readability
-        keywords_repr = (self.keywords_raw[:50] + '...') if len(self.keywords_raw) > 50 else self.keywords_raw
-        return (f"<KeywordSearchSession(id={repr_id}, keywords='{keywords_repr}', "
-                f"status='{self.status}')>")
+        keywords_repr = (
+            (self.keywords_raw[:50] + "...")
+            if len(self.keywords_raw) > 50
+            else self.keywords_raw
+        )
+        return (
+            f"<KeywordSearchSession(id={repr_id}, keywords='{keywords_repr}', "
+            f"status='{self.status}')>"
+        )

@@ -6,6 +6,7 @@ backend.data.repositories.issue_repo
 Provides data access operations for the Issue model, representing GitHub issues
 tracked within associated repositories.
 """
+
 import logging
 from typing import Optional, Dict, Any
 
@@ -13,9 +14,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from .base_repository import BaseRepository
-from backend.data.models import Issue # The specific SQLAlchemy model
+from backend.data.models import Issue  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class IssueRepository(BaseRepository[Issue]):
     """
@@ -55,13 +57,22 @@ class IssueRepository(BaseRepository[Issue]):
         """
         logger.debug(f"Getting Issue by github_id: {github_id}")
         if not self.db.is_active:
-            logger.warning(f"Session is inactive in get_by_github_id for Issue {github_id}")
+            logger.warning(
+                f"Session is inactive in get_by_github_id for Issue {github_id}"
+            )
             return None
         try:
             # Query the Issue model filtering by the unique github_id.
-            return self.db.query(self.model).filter(self.model.github_id == github_id).first()
+            return (
+                self.db.query(self.model)
+                .filter(self.model.github_id == github_id)
+                .first()
+            )
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_by_github_id for Issue {github_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_by_github_id for Issue {github_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def get_or_create_by_github_id(
@@ -102,8 +113,12 @@ class IssueRepository(BaseRepository[Issue]):
         if not github_id:
             raise ValueError("github_id cannot be empty for Issue get_or_create")
         if not self.db.is_active:
-             logger.error(f"Session is inactive at start of get_or_create_by_github_id for Issue {github_id}.")
-             raise RuntimeError("Database session is inactive, cannot perform get_or_create.")
+            logger.error(
+                f"Session is inactive at start of get_or_create_by_github_id for Issue {github_id}."
+            )
+            raise RuntimeError(
+                "Database session is inactive, cannot perform get_or_create."
+            )
 
         try:
             # --- Step 1: Query First ---
@@ -111,50 +126,75 @@ class IssueRepository(BaseRepository[Issue]):
 
             if db_obj:
                 # --- Step 2a: Record Found - Check for Updates ---
-                logger.debug(f"Found existing Issue GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates.")
+                logger.debug(
+                    f"Found existing Issue GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates."
+                )
                 updated = False
                 # Check and update common fields that might change.
-                if obj_in_data.get('title') is not None and db_obj.title != obj_in_data.get('title'):
-                    db_obj.title = obj_in_data['title']
+                if obj_in_data.get(
+                    "title"
+                ) is not None and db_obj.title != obj_in_data.get("title"):
+                    db_obj.title = obj_in_data["title"]
                     updated = True
-                if obj_in_data.get('state') is not None and db_obj.state != obj_in_data.get('state'):
-                    db_obj.state = obj_in_data['state']
+                if obj_in_data.get(
+                    "state"
+                ) is not None and db_obj.state != obj_in_data.get("state"):
+                    db_obj.state = obj_in_data["state"]
                     updated = True
-                if obj_in_data.get('gh_updated_at') is not None and db_obj.gh_updated_at != obj_in_data.get('gh_updated_at'):
-                    db_obj.gh_updated_at = obj_in_data['gh_updated_at']
+                if obj_in_data.get(
+                    "gh_updated_at"
+                ) is not None and db_obj.gh_updated_at != obj_in_data.get(
+                    "gh_updated_at"
+                ):
+                    db_obj.gh_updated_at = obj_in_data["gh_updated_at"]
                     updated = True
-                if obj_in_data.get('gh_closed_at') is not None and db_obj.gh_closed_at != obj_in_data.get('gh_closed_at'):
+                if obj_in_data.get(
+                    "gh_closed_at"
+                ) is not None and db_obj.gh_closed_at != obj_in_data.get(
+                    "gh_closed_at"
+                ):
                     # Note: Ensure gh_closed_at can be None if the issue is reopened.
-                    db_obj.gh_closed_at = obj_in_data['gh_closed_at']
+                    db_obj.gh_closed_at = obj_in_data["gh_closed_at"]
                     updated = True
                 # Add other relevant fields like labels, assignees, body if managed here.
 
                 if updated:
-                    self.db.add(db_obj) # Mark as dirty in the session.
-                    logger.info(f"Issue {db_obj.id} marked for update in the current session.")
+                    self.db.add(db_obj)  # Mark as dirty in the session.
+                    logger.info(
+                        f"Issue {db_obj.id} marked for update in the current session."
+                    )
                     # Optional: Flush and refresh if immediate state needed by caller.
                     # self.db.flush()
                     # self.db.refresh(db_obj)
-                return db_obj # Return the existing instance.
+                return db_obj  # Return the existing instance.
             else:
                 # --- Step 2b: Record Not Found - Create New ---
-                logger.debug(f"Issue GH ID {github_id} not found. Preparing to create new.")
+                logger.debug(
+                    f"Issue GH ID {github_id} not found. Preparing to create new."
+                )
                 # Validate presence of required foreign keys for creation.
-                if 'repository_id' not in obj_in_data or 'user_id' not in obj_in_data:
-                    raise ValueError(f"Missing required 'repository_id' or 'user_id' in obj_in_data for creating new Issue with GH ID {github_id}")
+                if "repository_id" not in obj_in_data or "user_id" not in obj_in_data:
+                    raise ValueError(
+                        f"Missing required 'repository_id' or 'user_id' in obj_in_data for creating new Issue with GH ID {github_id}"
+                    )
 
                 # Ensure github_id is set in the creation data.
                 obj_in_data["github_id"] = github_id
-                new_obj = self.model(**obj_in_data) # Instantiate the new issue.
-                self.db.add(new_obj) # Add to session.
+                new_obj = self.model(**obj_in_data)  # Instantiate the new issue.
+                self.db.add(new_obj)  # Add to session.
                 # Flush: Send INSERT, get PK, check FK constraints.
                 self.db.flush()
                 # Refresh: Load DB defaults/generated values.
                 self.db.refresh(new_obj)
-                logger.info(f"Successfully created and flushed new Issue GH ID {github_id} (DB ID: {new_obj.id})")
-                return new_obj # Return the new instance.
+                logger.info(
+                    f"Successfully created and flushed new Issue GH ID {github_id} (DB ID: {new_obj.id})"
+                )
+                return new_obj  # Return the new instance.
 
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_or_create for Issue GH ID {github_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_or_create for Issue GH ID {github_id}: {e}",
+                exc_info=True,
+            )
             # Rollback is handled by the caller.
-            raise # Re-raise the error.
+            raise  # Re-raise the error.

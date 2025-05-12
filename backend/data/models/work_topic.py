@@ -9,7 +9,7 @@ stores metadata about the association, like relevance score.
 import logging
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import Integer, Float, Boolean, ForeignKey, Index, PrimaryKeyConstraint
+from sqlalchemy import Float, Boolean, ForeignKey, Index, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 # Assuming Base is correctly defined elsewhere
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from .topic import Topic
 
 logger = logging.getLogger(__name__)
+
 
 class WorkTopic(Base):
     """
@@ -44,6 +45,7 @@ class WorkTopic(Base):
         work: Relationship back to the Work object.
         topic: Relationship back to the Topic object.
     """
+
     __tablename__ = "work_topics"
 
     # --- Composite Primary Key and Foreign Keys ---
@@ -91,11 +93,11 @@ class WorkTopic(Base):
     # Define the primary key constraint explicitly and add indexes.
     __table_args__ = (
         # Explicit definition of the composite primary key.
-        PrimaryKeyConstraint('work_id', 'topic_id'),
+        PrimaryKeyConstraint("work_id", "topic_id"),
         # Indexes on individual foreign keys improve performance when querying for
         # all topics of a work, or all works associated with a topic.
-        Index('ix_work_topics_work_id', 'work_id'),
-        Index('ix_work_topics_topic_id', 'topic_id'),
+        Index("ix_work_topics_work_id", "work_id"),
+        Index("ix_work_topics_topic_id", "topic_id"),
         # Potentially add index on 'score' or 'is_primary' if frequently used for filtering/sorting.
         # Index('ix_work_topics_is_primary', 'is_primary'),
     )

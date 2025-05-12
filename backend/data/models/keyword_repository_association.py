@@ -9,10 +9,10 @@ during that search execution.
 import logging
 from typing import Optional, Dict, Any, TYPE_CHECKING
 from sqlalchemy import (
-    ForeignKey, Index # Index might be used if specific indexing beyond PK/FK is needed
+    ForeignKey,  # Index might be used if specific indexing beyond PK/FK is needed
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 # Assuming Base is correctly defined elsewhere
 # Adjust import path as necessary
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 # Use TYPE_CHECKING to prevent circular imports for type hints,
 # although direct relationships are commented out in this version.
 if TYPE_CHECKING:
-    from .keyword_search_session import KeywordSearchSession
-    from .repository import Repository
+    pass
+
 
 class KeywordRepositoryAssociation(Base):
     """
@@ -44,6 +44,7 @@ class KeywordRepositoryAssociation(Base):
         repository_id: Foreign key linking to the Repository. Part of the composite PK.
         match_details: Optional JSON field to store data about the match, like relevance score or matched terms.
     """
+
     __tablename__ = "keyword_repository_associations"
 
     # --- Composite Primary Key and Foreign Keys ---
@@ -55,21 +56,22 @@ class KeywordRepositoryAssociation(Base):
     keyword_search_session_id: Mapped[int] = mapped_column(
         ForeignKey("keyword_search_sessions.id", ondelete="CASCADE"),
         primary_key=True,
-        index=True # Index this foreign key
+        index=True,  # Index this foreign key
     )
     # Foreign key to the Repositories table. Part of the composite PK.
     # Indexed to optimize queries finding all sessions that discovered a given repository.
     repository_id: Mapped[int] = mapped_column(
         ForeignKey("repositories.id", ondelete="CASCADE"),
         primary_key=True,
-        index=True # Index this foreign key
+        index=True,  # Index this foreign key
     )
 
     # --- Optional Match Metadata ---
     # Store additional details about why this repository was considered a match
     # during the search process. This is flexible using JSONB.
     match_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB, nullable=True
+        JSONB,
+        nullable=True,
         # Example: {'score': 0.85, 'matched_in': ['description', 'readme'], 'terms': ['quantum computing']}
     )
 
@@ -95,5 +97,7 @@ class KeywordRepositoryAssociation(Base):
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
-        return (f"<KeywordRepoAssoc(session_id={self.keyword_search_session_id}, "
-                f"repo_id={self.repository_id})>")
+        return (
+            f"<KeywordRepoAssoc(session_id={self.keyword_search_session_id}, "
+            f"repo_id={self.repository_id})>"
+        )

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class Affiliation(Base):
     """
     Represents the association between an Authorship (Work+Person) and an Institution.
@@ -39,6 +40,7 @@ class Affiliation(Base):
         authorship: Relationship back to the specific Authorship record.
         institution: Relationship back to the specific Institution record.
     """
+
     __tablename__ = "affiliations"
 
     # --- Composite Primary Key Definition ---
@@ -51,7 +53,7 @@ class Affiliation(Base):
     institution_id: Mapped[int] = mapped_column(
         # Define the foreign key constraint directly here
         ForeignKey("institutions.id", ondelete="CASCADE"),
-        primary_key=True # This column is also part of the composite primary key
+        primary_key=True,  # This column is also part of the composite primary key
     )
 
     # --- Relationships ---
@@ -73,20 +75,22 @@ class Affiliation(Base):
         # 'ondelete="CASCADE"' ensures that if an Authorship record is deleted,
         # all corresponding Affiliation records are also automatically deleted.
         ForeignKeyConstraint(
-            ['authorship_work_id', 'authorship_person_id'],
-            ['authorships.work_id', 'authorships.person_id'],
+            ["authorship_work_id", "authorship_person_id"],
+            ["authorships.work_id", "authorships.person_id"],
             ondelete="CASCADE",
-            name='fk_affiliation_authorship' # Optional: Provides a specific name for the constraint
+            name="fk_affiliation_authorship",  # Optional: Provides a specific name for the constraint
         ),
         # Define indexes on individual foreign key columns to speed up lookups
         # based on institution or parts of the authorship key.
-        Index('ix_affiliations_institution_id', 'institution_id'),
-        Index('ix_affiliations_authorship_work_id', 'authorship_work_id'),
-        Index('ix_affiliations_authorship_person_id', 'authorship_person_id'),
+        Index("ix_affiliations_institution_id", "institution_id"),
+        Index("ix_affiliations_authorship_work_id", "authorship_work_id"),
+        Index("ix_affiliations_authorship_person_id", "authorship_person_id"),
         # Note: The composite primary key implicitly creates an index on (work_id, person_id, inst_id).
     )
 
     def __repr__(self):
         """Provides a developer-friendly string representation of the Affiliation."""
-        return (f"<Affiliation(work={self.authorship_work_id}, "
-                f"person={self.authorship_person_id}, inst={self.institution_id})>")
+        return (
+            f"<Affiliation(work={self.authorship_work_id}, "
+            f"person={self.authorship_person_id}, inst={self.institution_id})>"
+        )

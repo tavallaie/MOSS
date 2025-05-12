@@ -10,9 +10,10 @@ dependency function (`get_db`) for use with web frameworks like FastAPI.
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 # Use declarative_base from sqlalchemy.orm as recommended in modern SQLAlchemy
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.exc import SQLAlchemyError # Specific exception for database errors
+from sqlalchemy.exc import SQLAlchemyError  # Specific exception for database errors
 
 # Import application settings, expected to contain the DATABASE_URL
 from backend.config.settings import settings
@@ -37,13 +38,13 @@ try:
         # --- Connection Pool Configuration ---
         # These parameters tune the connection pool behavior for performance and reliability.
         # pool_size: The target number of connections to keep readily available in the pool.
-        pool_size=20,      # Increased from default (often 5) to handle more concurrent requests.
+        pool_size=20,  # Increased from default (often 5) to handle more concurrent requests.
         # max_overflow: The maximum number of additional connections allowed beyond 'pool_size'
         # during peak load before requests start waiting.
-        max_overflow=30,   # Allows for bursts of activity. (default often 10)
+        max_overflow=30,  # Allows for bursts of activity. (default often 10)
         # pool_timeout: The number of seconds to wait when trying to get a connection from the
         # pool before raising a TimeoutError.
-        pool_timeout=30    # Standard timeout duration.
+        pool_timeout=30,  # Standard timeout duration.
     )
 
     # --- Optional: Connection Event Logging ---
@@ -59,9 +60,15 @@ try:
 
     # Log essential information about the engine setup for monitoring.
     # Avoid logging the full DATABASE_URL for security, show only the end part.
-    log_url_display = f"{'*' * 5}{SQLALCHEMY_DATABASE_URL[-5:]}" if SQLALCHEMY_DATABASE_URL else "Not Set"
+    log_url_display = (
+        f"{'*' * 5}{SQLALCHEMY_DATABASE_URL[-5:]}"
+        if SQLALCHEMY_DATABASE_URL
+        else "Not Set"
+    )
     logger.info(f"SQLAlchemy engine created for URL ending in: {log_url_display}")
-    logger.info(f"SQLAlchemy pool settings: size={engine.pool.size()}, overflow={engine.pool.overflow()}, timeout={engine.pool.timeout()}")
+    logger.info(
+        f"SQLAlchemy pool settings: size={engine.pool.size()}, overflow={engine.pool.overflow()}, timeout={engine.pool.timeout()}"
+    )
 
 # --- Robust Error Handling ---
 # Catch specific errors during engine creation to provide informative logs and fail gracefully.
@@ -86,13 +93,14 @@ SessionLocal = sessionmaker(
     # autoflush=False: Prevents automatic flushing of changes before queries, giving more control.
     autoflush=False,
     # bind=engine: Associates this session factory with our configured database engine.
-    bind=engine
+    bind=engine,
 )
 
 # --- Declarative Base ---
 # Create a base class for our ORM (Object-Relational Mapper) models.
 # All application data models should inherit from this 'Base'.
 Base = declarative_base()
+
 
 # --- Dependency for Web Frameworks (e.g., FastAPI) ---
 def get_db():
@@ -108,7 +116,7 @@ def get_db():
     Yields:
         sqlalchemy.orm.Session: A database session instance.
     """
-    db = SessionLocal() # Create a new session instance from the factory.
+    db = SessionLocal()  # Create a new session instance from the factory.
     try:
         # Yield the session to the part of the code that depends on it (e.g., a request handler).
         yield db
@@ -116,6 +124,7 @@ def get_db():
         # This block executes regardless of whether an exception occurred in the 'try' block.
         # It's crucial to close the session to release the database connection back to the pool.
         db.close()
+
 
 # --- Example Standalone Usage (Commented Out) ---
 # This section demonstrates how to use the SessionLocal directly,

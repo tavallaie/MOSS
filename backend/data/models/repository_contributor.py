@@ -7,12 +7,13 @@ and Contributors.
 """
 
 from typing import Optional
-from sqlalchemy import Integer, ForeignKey, UniqueConstraint # UniqueConstraint might be needed elsewhere
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Integer, ForeignKey  # UniqueConstraint might be needed elsewhere
+from sqlalchemy.orm import Mapped, mapped_column
 
 # Assuming Base is correctly defined elsewhere
 # Adjust import path as necessary
 from ..database import Base
+
 
 class RepositoryContributorAssociation(Base):
     """
@@ -32,6 +33,7 @@ class RepositoryContributorAssociation(Base):
         contributions_count: Optional field storing the number of contributions made
                              by the contributor to the repository (e.g., from GitHub API).
     """
+
     __tablename__ = "repository_contributors"
 
     # --- Composite Primary Key / Foreign Keys ---
@@ -39,10 +41,14 @@ class RepositoryContributorAssociation(Base):
     # specific repository and one specific contributor.
 
     # Foreign key referencing the Repository table. Part of the composite PK.
-    repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.id"), primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id"), primary_key=True
+    )
 
     # Foreign key referencing the Contributor table. Part of the composite PK.
-    contributor_id: Mapped[int] = mapped_column(ForeignKey("contributors.id"), primary_key=True)
+    contributor_id: Mapped[int] = mapped_column(
+        ForeignKey("contributors.id"), primary_key=True
+    )
 
     # --- Optional Association Metadata ---
     # Additional information about the specific contribution relationship.
@@ -67,6 +73,12 @@ class RepositoryContributorAssociation(Base):
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
-        count_repr = f", count={self.contributions_count}" if self.contributions_count is not None else ""
-        return (f"<RepoContrib(repo_id={self.repository_id}, "
-                f"contrib_id={self.contributor_id}{count_repr})>")
+        count_repr = (
+            f", count={self.contributions_count}"
+            if self.contributions_count is not None
+            else ""
+        )
+        return (
+            f"<RepoContrib(repo_id={self.repository_id}, "
+            f"contrib_id={self.contributor_id}{count_repr})>"
+        )

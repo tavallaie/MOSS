@@ -3,13 +3,14 @@ import sys
 import logging
 
 # Ensure the backend package is discoverable
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from alembic.config import Config
 from alembic import command
-from backend.config.logging_config import setup_logging # Use our logging setup
+from backend.config.logging_config import setup_logging  # Use our logging setup
+
 # Import settings to ensure .env is loaded if alembic.ini relies on it indirectly
 # (Although our current env.py loads it directly)
 try:
@@ -18,13 +19,14 @@ except ValueError as e:
     print(f"ERROR: Could not load settings. Is .env configured correctly? Details: {e}")
     sys.exit(1)
 except ImportError as e:
-     print(f"ERROR: Could not import settings. Path issue? Details: {e}")
-     sys.exit(1)
+    print(f"ERROR: Could not import settings. Path issue? Details: {e}")
+    sys.exit(1)
 
 
 # Set up logging for the script
 setup_logging()
 logger = logging.getLogger(__name__)
+
 
 def main():
     """Applies Alembic migrations to the database."""
@@ -32,7 +34,7 @@ def main():
 
     # Construct the absolute path to alembic.ini relative to this script
     # Assumes this script is in moss/scripts/ and alembic.ini is in moss/
-    alembic_ini_path = os.path.join(PROJECT_ROOT, 'alembic.ini')
+    alembic_ini_path = os.path.join(PROJECT_ROOT, "alembic.ini")
     logger.info(f"Using Alembic config: {alembic_ini_path}")
 
     if not os.path.exists(alembic_ini_path):
@@ -57,6 +59,7 @@ def main():
     except Exception as e:
         logger.error(f"Error applying database migrations: {e}", exc_info=True)
         return False
+
 
 if __name__ == "__main__":
     if main():

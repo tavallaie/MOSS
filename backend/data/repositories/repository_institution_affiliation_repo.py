@@ -13,12 +13,14 @@ from typing import Dict, Any, Optional, Tuple
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-# from sqlalchemy import func # Uncomment if using func.now() as server_default
-from datetime import datetime, timezone # Used for manually setting timestamps
 
-from backend.data.models import RepositoryInstitutionAffiliation # The specific model
+# from sqlalchemy import func # Uncomment if using func.now() as server_default
+from datetime import datetime, timezone  # Used for manually setting timestamps
+
+from backend.data.models import RepositoryInstitutionAffiliation  # The specific model
 
 logger = logging.getLogger(__name__)
+
 
 class RepositoryInstitutionAffiliationRepository:
     """
@@ -30,6 +32,7 @@ class RepositoryInstitutionAffiliationRepository:
     primary key (repository_id, institution_id, algorithm_name, algorithm_version)
     and implements a specific create-or-update logic.
     """
+
     def __init__(self, db: Session):
         """
         Initializes the RepositoryInstitutionAffiliationRepository.
@@ -46,7 +49,7 @@ class RepositoryInstitutionAffiliationRepository:
         repository_id: int,
         institution_id: int,
         algorithm_name: str,
-        algorithm_version: str
+        algorithm_version: str,
     ) -> Optional[RepositoryInstitutionAffiliation]:
         """
         Retrieves a specific affiliation record using its composite primary key.
@@ -69,8 +72,10 @@ class RepositoryInstitutionAffiliationRepository:
             # Session.get is efficient for primary key lookups, including composite keys (passed as a tuple).
             return self.db.get(self.model, pk_tuple)
         except SQLAlchemyError as e:
-            logger.error(f"DB error getting affiliation for key {pk_tuple}: {e}", exc_info=True)
-            raise # Propagate the error for handling by the caller.
+            logger.error(
+                f"DB error getting affiliation for key {pk_tuple}: {e}", exc_info=True
+            )
+            raise  # Propagate the error for handling by the caller.
 
     def create_or_update_affiliation(
         self,
@@ -81,7 +86,7 @@ class RepositoryInstitutionAffiliationRepository:
         algorithm_version: str,
         confidence_score: float,
         evidence: Optional[Dict[str, Any]] = None,
-        parameters_used: Optional[Dict[str, Any]] = None
+        parameters_used: Optional[Dict[str, Any]] = None,
     ) -> Tuple[RepositoryInstitutionAffiliation, bool]:
         """
         Creates a new affiliation record or updates an existing one based on the composite PK.
@@ -127,13 +132,18 @@ class RepositoryInstitutionAffiliationRepository:
             repository_id=repository_id,
             institution_id=institution_id,
             algorithm_name=algorithm_name,
-            algorithm_version=algorithm_version
+            algorithm_version=algorithm_version,
         )
 
-        created = False # Flag to indicate if a new record was created.
+        created = False  # Flag to indicate if a new record was created.
         # Get the current UTC time for the calculated_at timestamp.
         current_time = datetime.now(timezone.utc)
-        pk_tuple = (repository_id, institution_id, algorithm_name, algorithm_version) # For logging
+        pk_tuple = (
+            repository_id,
+            institution_id,
+            algorithm_name,
+            algorithm_version,
+        )  # For logging
 
         if existing_affiliation:
             # --- Update Existing Record ---
@@ -158,21 +168,29 @@ class RepositoryInstitutionAffiliationRepository:
                 confidence_score=confidence_score,
                 evidence=evidence,
                 parameters_used=parameters_used,
-                calculated_at=current_time # Set timestamp on creation as well.
+                calculated_at=current_time,  # Set timestamp on creation as well.
             )
             # Mark created as True since we are inserting.
             created = True
 
         try:
-            self.db.add(db_obj) # Add the new or updated object to the session.
+            self.db.add(db_obj)  # Add the new or updated object to the session.
             # Flush to send SQL (INSERT or UPDATE) to the database and check constraints.
             self.db.flush()
             # Refresh the object state to ensure it reflects any DB-side changes
             # (though less likely for this model unless triggers are used).
             self.db.refresh(db_obj)
-            logger.info(f"Successfully {'created' if created else 'updated'} and flushed affiliation for key: {pk_tuple}")
-            return db_obj, created # Return the object and the created/updated status flag.
+            logger.info(
+                f"Successfully {'created' if created else 'updated'} and flushed affiliation for key: {pk_tuple}"
+            )
+            return (
+                db_obj,
+                created,
+            )  # Return the object and the created/updated status flag.
         except SQLAlchemyError as e:
-            logger.error(f"DB error {'creating' if created else 'updating'} affiliation for key {pk_tuple}: {e}", exc_info=True)
+            logger.error(
+                f"DB error {'creating' if created else 'updating'} affiliation for key {pk_tuple}: {e}",
+                exc_info=True,
+            )
             # Rollback should occur in the calling service layer / API endpoint.
-            raise # Re-raise the error.
+            raise  # Re-raise the error.

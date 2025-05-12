@@ -2,7 +2,7 @@
 
 # Import base first if other models rely on it implicitly
 from .base import BaseModel
-from .types import * # Import custom types
+from .types import *  # Import custom types
 
 # Import all the models to make them visible to SQLAlchemy and Alembic
 from .owner import Owner
@@ -29,8 +29,8 @@ from .topic import Topic
 from .work_topic import WorkTopic
 from .pull_request import PullRequest
 from .issue import Issue
-from .issue_comment import IssueComment # <<< Added
-from .pr_review_comment import PRReviewComment # <<< Added
+from .issue_comment import IssueComment  # <<< Added
+from .pr_review_comment import PRReviewComment  # <<< Added
 
 
 # Optionally define __all__ to control `from backend.data.models import *` behavior
@@ -60,6 +60,6 @@ __all__ = [
     "WorkTopic",
     "PullRequest",
     "Issue",
-    "IssueComment", # <<< Added
-    "PRReviewComment", # <<< Added
+    "IssueComment",  # <<< Added
+    "PRReviewComment",  # <<< Added
 ]

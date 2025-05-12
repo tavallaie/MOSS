@@ -8,8 +8,9 @@ between them might be established later.
 """
 
 import logging
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import String, Index
+
 # Import JSONB type for handling JSON data in PostgreSQL, specifically for alternative names.
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -21,9 +22,12 @@ from .base import BaseModel
 
 # Use TYPE_CHECKING to prevent circular imports for type hints, especially for relationships.
 if TYPE_CHECKING:
-    from .authorship import Authorship # For the one-to-many relationship to Authorship records
+    from .authorship import (
+        Authorship,
+    )  # For the one-to-many relationship to Authorship records
 
 logger = logging.getLogger(__name__)
+
 
 class Person(BaseModel, Base):
     """
@@ -45,16 +49,21 @@ class Person(BaseModel, Base):
         authorships: One-to-many relationship linking this person to their Authorship
                      records (representing their role on specific Works).
     """
+
     __tablename__ = "persons"
 
     # --- Identifiers ---
     # Key unique identifiers linking this person to external scholarly systems.
 
     # OpenAlex unique ID. Essential for linking to OpenAlex data. Indexed.
-    openalex_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    openalex_id: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
 
     # ORCID iD provides a persistent digital identifier for researchers. Unique and indexed.
-    orcid: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True, nullable=True)
+    orcid: Mapped[Optional[str]] = mapped_column(
+        String, unique=True, index=True, nullable=True
+    )
 
     # --- Name Information ---
     # Stores the person's name and known variations.
@@ -64,7 +73,9 @@ class Person(BaseModel, Base):
 
     # Stores a list of alternative names (e.g., ["J. Smith", "Johnathan Smith"])
     # using JSONB for flexibility and efficient querying within the list in PostgreSQL.
-    display_name_alternatives: Mapped[Optional[List[str]]] = mapped_column(JSONB, nullable=True)
+    display_name_alternatives: Mapped[Optional[List[str]]] = mapped_column(
+        JSONB, nullable=True
+    )
 
     # --- Relationships ---
     # Defines how Persons connect to their contributions (Works via Authorships).
@@ -76,22 +87,23 @@ class Person(BaseModel, Base):
     # Authorship records (and consequently their Affiliations) are also deleted.
     # This implies that removing a person removes all their recorded publication links.
     authorships: Mapped[List["Authorship"]] = relationship(
-        back_populates="person",
-        cascade="all, delete-orphan"
+        back_populates="person", cascade="all, delete-orphan"
     )
 
     # --- Table Arguments ---
     # Explicitly define indexes for optimized query performance, particularly on identifiers.
     # While unique=True implies an index, defining them here ensures clarity.
     __table_args__ = (
-        Index('ix_persons_openalex_id', 'openalex_id'), # Index on OpenAlex ID
-        Index('ix_persons_orcid', 'orcid'),             # Index on ORCID
-        Index('ix_persons_display_name', 'display_name'), # Index on primary name for searching
+        Index("ix_persons_openalex_id", "openalex_id"),  # Index on OpenAlex ID
+        Index("ix_persons_orcid", "orcid"),  # Index on ORCID
+        Index(
+            "ix_persons_display_name", "display_name"
+        ),  # Index on primary name for searching
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Safely access 'id' which comes from BaseModel
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         orcid_repr = f", orcid={self.orcid}" if self.orcid else ""
         return f"<Person(id={obj_id}, name='{self.display_name}'{orcid_repr})>"

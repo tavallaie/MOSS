@@ -12,7 +12,9 @@ from .keyword_search_session_repo import KeywordSearchSessionRepository
 from .keyword_repository_association_repo import KeywordRepositoryAssociationRepository
 from .person_repo import PersonRepository
 from .institution_repo import InstitutionRepository
-from .repository_institution_affiliation_repo import RepositoryInstitutionAffiliationRepository
+from .repository_institution_affiliation_repo import (
+    RepositoryInstitutionAffiliationRepository,
+)
 from .software_dependency_repo import SoftwareDependencyRepository
 from .domain_repo import DomainRepository
 from .field_repo import FieldRepository
@@ -20,6 +22,7 @@ from .subfield_repo import SubfieldRepository
 from .topic_repo import TopicRepository
 from .pull_request_repo import PullRequestRepository
 from .issue_repo import IssueRepository
+
 # --- ADDED ---
 from .issue_comment_repo import IssueCommentRepository
 from .pr_review_comment_repo import PRReviewCommentRepository
@@ -47,6 +50,6 @@ __all__ = [
     "TopicRepository",
     "PullRequestRepository",
     "IssueRepository",
-    "IssueCommentRepository",       # <<< Added
-    "PRReviewCommentRepository",    # <<< Added
+    "IssueCommentRepository",  # <<< Added
+    "PRReviewCommentRepository",  # <<< Added
 ]

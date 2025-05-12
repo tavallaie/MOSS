@@ -11,12 +11,13 @@ import logging
 from typing import Optional, Dict, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError # General SQLAlchemy exception
+from sqlalchemy.exc import SQLAlchemyError  # General SQLAlchemy exception
 
 from .base_repository import BaseRepository
-from backend.data.models import Field # The specific SQLAlchemy model
+from backend.data.models import Field  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class FieldRepository(BaseRepository[Field]):
     """
@@ -53,14 +54,23 @@ class FieldRepository(BaseRepository[Field]):
         logger.debug(f"Getting Field by openalex_id: {openalex_id}")
         # Pre-check for active session can help diagnose transaction issues.
         if not self.db.is_active:
-            logger.warning(f"Session is inactive in get_by_openalex_id for OA ID {openalex_id}")
+            logger.warning(
+                f"Session is inactive in get_by_openalex_id for OA ID {openalex_id}"
+            )
             return None
         try:
             # Standard query filtering by the unique OpenAlex ID.
-            return self.db.query(self.model).filter(self.model.openalex_id == openalex_id).first()
+            return (
+                self.db.query(self.model)
+                .filter(self.model.openalex_id == openalex_id)
+                .first()
+            )
         except SQLAlchemyError as e:
-             logger.error(f"SQLAlchemyError during get_by_openalex_id for {openalex_id}: {e}", exc_info=True)
-             raise
+            logger.error(
+                f"SQLAlchemyError during get_by_openalex_id for {openalex_id}: {e}",
+                exc_info=True,
+            )
+            raise
 
     def get_or_create_by_openalex_id(
         self, *, openalex_id: str, obj_in_data: Dict[str, Any]
@@ -102,8 +112,12 @@ class FieldRepository(BaseRepository[Field]):
             raise ValueError("openalex_id cannot be empty for Field get_or_create")
         # Ensure the session is usable at the start.
         if not self.db.is_active:
-             logger.error("Session is inactive at start of get_or_create_by_openalex_id for Field.")
-             raise RuntimeError("Database session is inactive, cannot perform get_or_create.")
+            logger.error(
+                "Session is inactive at start of get_or_create_by_openalex_id for Field."
+            )
+            raise RuntimeError(
+                "Database session is inactive, cannot perform get_or_create."
+            )
 
         try:
             # --- Step 1: Query First ---
@@ -111,52 +125,73 @@ class FieldRepository(BaseRepository[Field]):
 
             if db_obj:
                 # --- Step 2a: Record Found - Check for Updates ---
-                logger.debug(f"Found existing Field OA ID {openalex_id} (DB ID: {db_obj.id}). Checking for updates.")
+                logger.debug(
+                    f"Found existing Field OA ID {openalex_id} (DB ID: {db_obj.id}). Checking for updates."
+                )
                 updated = False
                 # Check and update display name if provided and different.
-                if obj_in_data.get('display_name') is not None and db_obj.display_name != obj_in_data.get('display_name'):
-                    db_obj.display_name = obj_in_data['display_name']
+                if obj_in_data.get(
+                    "display_name"
+                ) is not None and db_obj.display_name != obj_in_data.get(
+                    "display_name"
+                ):
+                    db_obj.display_name = obj_in_data["display_name"]
                     updated = True
                 # Check and update description if provided and different.
-                if obj_in_data.get('description') is not None and db_obj.description != obj_in_data.get('description'):
-                     db_obj.description = obj_in_data['description']
-                     updated = True
+                if obj_in_data.get(
+                    "description"
+                ) is not None and db_obj.description != obj_in_data.get("description"):
+                    db_obj.description = obj_in_data["description"]
+                    updated = True
                 # Check if the parent domain_id needs updating (less common, but possible).
-                new_domain_id = obj_in_data.get('domain_id')
+                new_domain_id = obj_in_data.get("domain_id")
                 if new_domain_id is not None and db_obj.domain_id != new_domain_id:
-                     logger.warning(f"Field OA ID {openalex_id} exists but domain_id mismatch detected. "
-                                    f"DB has {db_obj.domain_id}, input data has {new_domain_id}. Updating.")
-                     db_obj.domain_id = new_domain_id
-                     updated = True
+                    logger.warning(
+                        f"Field OA ID {openalex_id} exists but domain_id mismatch detected. "
+                        f"DB has {db_obj.domain_id}, input data has {new_domain_id}. Updating."
+                    )
+                    db_obj.domain_id = new_domain_id
+                    updated = True
                 # Add other field update checks here if needed...
 
                 if updated:
-                    self.db.add(db_obj) # Mark as dirty in the session.
-                    logger.info(f"Field {db_obj.id} marked for update in the current session.")
+                    self.db.add(db_obj)  # Mark as dirty in the session.
+                    logger.info(
+                        f"Field {db_obj.id} marked for update in the current session."
+                    )
                     # Optional: Flush and refresh if immediate DB state is needed by caller before commit.
                     # self.db.flush()
                     # self.db.refresh(db_obj)
-                return db_obj # Return the existing instance.
+                return db_obj  # Return the existing instance.
 
             else:
                 # --- Step 2b: Record Not Found - Create New ---
-                logger.debug(f"Field OA ID {openalex_id} not found. Preparing to create new.")
+                logger.debug(
+                    f"Field OA ID {openalex_id} not found. Preparing to create new."
+                )
                 # Crucial check: Ensure the foreign key `domain_id` is provided for creation.
-                if 'domain_id' not in obj_in_data or obj_in_data['domain_id'] is None:
-                    raise ValueError(f"Missing required 'domain_id' in obj_in_data for creating new Field with OA ID {openalex_id}")
+                if "domain_id" not in obj_in_data or obj_in_data["domain_id"] is None:
+                    raise ValueError(
+                        f"Missing required 'domain_id' in obj_in_data for creating new Field with OA ID {openalex_id}"
+                    )
 
                 # Ensure the openalex_id is part of the creation data.
                 obj_in_data["openalex_id"] = openalex_id
-                new_obj = self.model(**obj_in_data) # Create the instance.
-                self.db.add(new_obj) # Add to session.
+                new_obj = self.model(**obj_in_data)  # Create the instance.
+                self.db.add(new_obj)  # Add to session.
                 # Flush: Send INSERT, get PK, check constraints.
                 self.db.flush()
                 # Refresh: Update object with DB defaults.
                 self.db.refresh(new_obj)
-                logger.info(f"Successfully created and flushed new Field OA ID {openalex_id} (DB ID: {new_obj.id})")
-                return new_obj # Return the new instance.
+                logger.info(
+                    f"Successfully created and flushed new Field OA ID {openalex_id} (DB ID: {new_obj.id})"
+                )
+                return new_obj  # Return the new instance.
 
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_or_create for Field OA ID {openalex_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_or_create for Field OA ID {openalex_id}: {e}",
+                exc_info=True,
+            )
             # Let the caller handle transaction rollback.
-            raise # Re-raise the caught exception.
+            raise  # Re-raise the caught exception.

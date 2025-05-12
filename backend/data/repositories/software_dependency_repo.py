@@ -6,6 +6,7 @@ backend.data.repositories.software_dependency_repo
 Provides data access operations for the SoftwareDependency model, representing
 dependencies listed in project files (e.g., requirements.txt, package.json).
 """
+
 import logging
 from typing import Optional, List, Dict, Any
 
@@ -13,9 +14,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from .base_repository import BaseRepository
-from backend.data.models import SoftwareDependency # The specific model
+from backend.data.models import SoftwareDependency  # The specific model
 
 logger = logging.getLogger(__name__)
+
 
 class SoftwareDependencyRepository(BaseRepository[SoftwareDependency]):
     """
@@ -56,24 +58,27 @@ class SoftwareDependencyRepository(BaseRepository[SoftwareDependency]):
         Raises:
             SQLAlchemyError: If a database error occurs during the query.
         """
-        logger.debug(f"Finding dependency '{dependency_name}' from source '{source_file}' in repository {repository_id}")
+        logger.debug(
+            f"Finding dependency '{dependency_name}' from source '{source_file}' in repository {repository_id}"
+        )
         try:
             return (
                 self.db.query(self.model)
                 .filter(
                     self.model.repository_id == repository_id,
                     self.model.dependency_name == dependency_name,
-                    self.model.source_file == source_file
+                    self.model.source_file == source_file,
                 )
-                .first() # Expecting one or zero matches based on these fields.
+                .first()  # Expecting one or zero matches based on these fields.
             )
         except SQLAlchemyError as e:
-            logger.error(f"DB error finding dependency {dependency_name} in {source_file} for repo {repository_id}: {e}", exc_info=True)
+            logger.error(
+                f"DB error finding dependency {dependency_name} in {source_file} for repo {repository_id}: {e}",
+                exc_info=True,
+            )
             raise
 
-    def get_or_create(
-        self, *, obj_in_data: Dict[str, Any]
-    ) -> SoftwareDependency:
+    def get_or_create(self, *, obj_in_data: Dict[str, Any]) -> SoftwareDependency:
         """
         Retrieves a software dependency record or creates a new one if not found.
 
@@ -108,8 +113,12 @@ class SoftwareDependencyRepository(BaseRepository[SoftwareDependency]):
         src_file = obj_in_data.get("source_file")
 
         # Validate required fields for lookup/creation.
-        if not all([repo_id, dep_name, src_file is not None]): # Allow empty string for source_file? Check constraints.
-            raise ValueError("repository_id, dependency_name, and source_file must be provided in obj_in_data for SoftwareDependency get_or_create")
+        if not all(
+            [repo_id, dep_name, src_file is not None]
+        ):  # Allow empty string for source_file? Check constraints.
+            raise ValueError(
+                "repository_id, dependency_name, and source_file must be provided in obj_in_data for SoftwareDependency get_or_create"
+            )
 
         # --- Step 1: Query First ---
         db_obj = self.find_by_repository_and_name(
@@ -118,7 +127,9 @@ class SoftwareDependencyRepository(BaseRepository[SoftwareDependency]):
 
         if db_obj:
             # --- Step 2a: Record Found ---
-            logger.debug(f"Found existing dependency record: {dep_name} in {src_file} for repo {repo_id} (ID: {db_obj.id})")
+            logger.debug(
+                f"Found existing dependency record: {dep_name} in {src_file} for repo {repo_id} (ID: {db_obj.id})"
+            )
             # --- Optional Update Logic ---
             # Example: Update version constraint if it has changed.
             # new_version = obj_in_data.get("version_constraint")
@@ -127,24 +138,29 @@ class SoftwareDependencyRepository(BaseRepository[SoftwareDependency]):
             #     db_obj.version_constraint = new_version
             #     self.db.add(db_obj) # Mark as dirty if updated.
             #     # Consider flushing/refreshing if updates are made.
-            return db_obj # Return existing object.
+            return db_obj  # Return existing object.
         else:
             # --- Step 2b: Record Not Found - Create New ---
-            logger.debug(f"Creating new dependency record: {dep_name} in {src_file} for repo {repo_id}")
+            logger.debug(
+                f"Creating new dependency record: {dep_name} in {src_file} for repo {repo_id}"
+            )
             try:
-                new_obj = self.model(**obj_in_data) # Instantiate new object.
-                self.db.add(new_obj) # Add to session.
-                self.db.flush() # Send INSERT, get PK, check constraints.
-                self.db.refresh(new_obj) # Load DB defaults.
-                logger.info(f"Successfully created and flushed new dependency {new_obj.id} ({dep_name} in {src_file} for repo {repo_id})")
-                return new_obj # Return new object.
+                new_obj = self.model(**obj_in_data)  # Instantiate new object.
+                self.db.add(new_obj)  # Add to session.
+                self.db.flush()  # Send INSERT, get PK, check constraints.
+                self.db.refresh(new_obj)  # Load DB defaults.
+                logger.info(
+                    f"Successfully created and flushed new dependency {new_obj.id} ({dep_name} in {src_file} for repo {repo_id})"
+                )
+                return new_obj  # Return new object.
             except SQLAlchemyError as e:
-                logger.error(f"DB error creating dependency {dep_name} in {src_file} for repo {repo_id}: {e}", exc_info=True)
-                raise # Re-raise for caller to handle (and rollback).
+                logger.error(
+                    f"DB error creating dependency {dep_name} in {src_file} for repo {repo_id}: {e}",
+                    exc_info=True,
+                )
+                raise  # Re-raise for caller to handle (and rollback).
 
-    def find_by_repository(
-        self, *, repository_id: int
-    ) -> List[SoftwareDependency]:
+    def find_by_repository(self, *, repository_id: int) -> List[SoftwareDependency]:
         """
         Finds all software dependencies declared within a specific repository.
 
@@ -164,9 +180,14 @@ class SoftwareDependencyRepository(BaseRepository[SoftwareDependency]):
             return (
                 self.db.query(self.model)
                 .filter(self.model.repository_id == repository_id)
-                .order_by(self.model.source_file, self.model.dependency_name) # Order for consistent results.
+                .order_by(
+                    self.model.source_file, self.model.dependency_name
+                )  # Order for consistent results.
                 .all()
             )
         except SQLAlchemyError as e:
-            logger.error(f"DB error finding dependencies for repo {repository_id}: {e}", exc_info=True)
+            logger.error(
+                f"DB error finding dependencies for repo {repository_id}: {e}",
+                exc_info=True,
+            )
             raise

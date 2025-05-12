@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import the main API router aggregate from the v1 API definition.
 from backend.api.v1.api import api_router as api_router_v1
+
 # Import the centralized logging configuration function.
 from backend.config.logging_config import setup_logging
 
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="MOSS - Map of Open Source Science API",
     description="API for ingesting and querying data about open source scientific software and its relationships.",
-    version="0.1.0", # Consider linking this to a version managed elsewhere (e.g., pyproject.toml)
+    version="0.1.0",  # Consider linking this to a version managed elsewhere (e.g., pyproject.toml)
     # Additional OpenAPI metadata can be added here (e.g., docs_url, redoc_url)
 )
 
@@ -42,22 +43,23 @@ app = FastAPI(
 # than the API.
 # Define allowed origins (adjust for development/production environments).
 origins = [
-    "http://localhost",         # Common local development origin
-    "http://localhost:5173",    # Default Vite dev server port
-    "http://localhost:3000",    # Default React dev server port
+    "http://localhost",  # Common local development origin
+    "http://localhost:5173",  # Default Vite dev server port
+    "http://localhost:3000",  # Default React dev server port
     # Add production frontend URLs here, e.g., "https://moss.example.com"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,          # List of allowed origins.
-    allow_credentials=True,         # Allow cookies to be included in requests.
-    allow_methods=["*"],            # Allow all standard HTTP methods (GET, POST, etc.).
-    allow_headers=["*"],            # Allow all request headers.
+    allow_origins=origins,  # List of allowed origins.
+    allow_credentials=True,  # Allow cookies to be included in requests.
+    allow_methods=["*"],  # Allow all standard HTTP methods (GET, POST, etc.).
+    allow_headers=["*"],  # Allow all request headers.
 )
 # --- End CORS Middleware ---
 
 # --- Application Lifecycle Event Handlers ---
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -68,6 +70,7 @@ async def startup_event():
     logger.info("MOSS API application starting up...")
     # Potential future actions: Initialize database connections pools, load caches, etc.
 
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """
@@ -76,7 +79,9 @@ async def shutdown_event():
     logger.info("MOSS API application shutting down...")
     # Potential future actions: Close database connections, flush logs, etc.
 
+
 # --- Basic Health Check Endpoint ---
+
 
 @app.get("/health", tags=["Health"], summary="API Health Status")
 async def health_check():
@@ -86,6 +91,7 @@ async def health_check():
     """
     logger.debug("Health check endpoint '/health' invoked.")
     return {"status": "ok"}
+
 
 # --- Include API Routers ---
 # Mount the API version 1 router under the '/api/v1' prefix.
