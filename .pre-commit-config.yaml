@@ -1,12 +1,19 @@
 repos:
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.11.9
-  hooks:
-    # Run the linter.
-    - id: ruff
-      types_or: [ python, pyi ]
-      args: [ --fix ]
-    # Run the formatter.
-    - id: ruff-format
-      types_or: [ python, pyi ]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.11.9
+    hooks:
+      # Run the linter.
+      - id: ruff
+        types_or: [python, pyi]
+
+        args:
+          [
+            --fix,
+            --exclude,
+            "contrib/*,Older Experiments/,backend/data/,scripts/",
+          ]
+      # Run the formatter.
+      - id: ruff-format
+        types_or: [python, pyi]
+        args: [--exclude, "contrib/*,Older Experiments/,backend/data/,scripts/"]
