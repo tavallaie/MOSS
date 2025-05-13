@@ -19,7 +19,9 @@ from .endpoints import search
 from .endpoints import shared_recipes
 from .endpoints import affiliation_algorithms
 from .endpoints import history
-from .endpoints import discovery_algorithms # Handles discovery algorithm related operations
+from .endpoints import (
+    discovery_algorithms,
+)  # Handles discovery algorithm related operations
 
 
 # Main router instance for API version 1.
@@ -39,10 +41,22 @@ api_router.include_router(surfacing.router, prefix="/surface", tags=["Surfacing"
 # Routes for search functionalities across the application data
 api_router.include_router(search.router, prefix="/search", tags=["Search"])
 # Routes for managing shared analysis recipes or configurations
-api_router.include_router(shared_recipes.router, prefix="/shared-recipes", tags=["Shared Analysis Recipes"])
+api_router.include_router(
+    shared_recipes.router, prefix="/shared-recipes", tags=["Shared Analysis Recipes"]
+)
 # Routes for managing and executing repository-institution affiliation algorithms
-api_router.include_router(affiliation_algorithms.router, prefix="/affiliation-algorithms", tags=["Affiliation Algorithms"])
+api_router.include_router(
+    affiliation_algorithms.router,
+    prefix="/affiliation-algorithms",
+    tags=["Affiliation Algorithms"],
+)
 # Routes for accessing history of ingestion tasks
-api_router.include_router(history.router, prefix="/ingestion-history", tags=["Ingestion History"])
+api_router.include_router(
+    history.router, prefix="/ingestion-history", tags=["Ingestion History"]
+)
 # Routes for managing and executing discovery algorithms
-api_router.include_router(discovery_algorithms.router, prefix="/discovery-algorithms", tags=["Discovery Algorithms"])
+api_router.include_router(
+    discovery_algorithms.router,
+    prefix="/discovery-algorithms",
+    tags=["Discovery Algorithms"],
+)

@@ -11,7 +11,6 @@ multi-process environments if the library is installed.
 
 import logging
 import sys
-import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from pathlib import Path
 # especially on Windows. Fall back to standard RotatingFileHandler if unavailable.
 try:
     from concurrent_log_handler import ConcurrentRotatingFileHandler
+
     CONCURRENT_HANDLER_AVAILABLE = True
 except ImportError:
     # Use standard RotatingFileHandler as a fallback if concurrent_log_handler is not installed.
@@ -41,15 +41,18 @@ log_formatter = logging.Formatter(
     "%(asctime)s [%(levelname)-5.5s] [%(name)s] [%(process)d] - %(message)s"
 )
 
+
 # --- Function to configure a specific logger ---
 def configure_logger(
     logger_instance: logging.Logger,
     log_level_console: int = logging.INFO,
     log_level_file: int = logging.DEBUG,
     log_file_name: str = "moss_app.log",
-    max_bytes: int = 10*1024*1024, # 10 MB log file size limit before rotation
-    backup_count: int = 5, # Number of backup log files to keep
-    handler_class: type[logging.FileHandler] = RotatingFileHandler # Handler class to use (allows selecting ConcurrentRotatingFileHandler)
+    max_bytes: int = 10 * 1024 * 1024,  # 10 MB log file size limit before rotation
+    backup_count: int = 5,  # Number of backup log files to keep
+    handler_class: type[
+        logging.FileHandler
+    ] = RotatingFileHandler,  # Handler class to use (allows selecting ConcurrentRotatingFileHandler)
 ):
     """
     Configures console and file handlers for a given logger instance.
@@ -88,7 +91,10 @@ def configure_logger(
     log_file_path = LOG_DIR / log_file_name
     # Determine which handler class to actually use, falling back if necessary.
     selected_handler_class = handler_class
-    if handler_class is ConcurrentRotatingFileHandler and not CONCURRENT_HANDLER_AVAILABLE:
+    if (
+        handler_class is ConcurrentRotatingFileHandler
+        and not CONCURRENT_HANDLER_AVAILABLE
+    ):
         # Log a warning if the preferred concurrent handler isn't available and we're falling back.
         # This primarily affects multi-process scenarios on Windows.
         logging.warning(
@@ -101,7 +107,8 @@ def configure_logger(
     # Check if a file handler of the *selected type* pointing to the *same file*
     # already exists for this logger instance to prevent duplicates.
     handler_exists = any(
-        isinstance(h, selected_handler_class) and getattr(h, 'baseFilename', None) == str(log_file_path)
+        isinstance(h, selected_handler_class)
+        and getattr(h, "baseFilename", None) == str(log_file_path)
         for h in logger_instance.handlers
     )
 
@@ -114,7 +121,7 @@ def configure_logger(
             filename=str(log_file_path),
             maxBytes=max_bytes,
             backupCount=backup_count,
-            encoding='utf-8',
+            encoding="utf-8",
             # delay=True # Optional: Set to True if experiencing file locking issues with ConcurrentRotatingFileHandler
         )
         file_handler.setFormatter(log_formatter)
@@ -124,7 +131,7 @@ def configure_logger(
     # Log configuration details only if the logger actually has handlers now.
     # Use basicConfig as a last resort if no handlers were added (shouldn't normally happen here).
     if not logger_instance.hasHandlers():
-         logging.basicConfig(level=logging.INFO) # Fallback basic config
+        logging.basicConfig(level=logging.INFO)  # Fallback basic config
     logger_instance.info(
         f"Logger '{logger_instance.name}' configured using {selected_handler_class.__name__}. "
         f"Console Level: {logging.getLevelName(log_level_console)}, "
@@ -137,10 +144,12 @@ def configure_logger(
 def setup_logging(
     root_log_level_console=logging.INFO,
     root_log_level_file=logging.DEBUG,
-    app_log_level_console=logging.INFO, # Parameter kept for potential future granular configuration
-    app_log_level_file=logging.DEBUG, # Parameter kept for potential future granular configuration
+    app_log_level_console=logging.INFO,  # Parameter kept for potential future granular configuration
+    app_log_level_file=logging.DEBUG,  # Parameter kept for potential future granular configuration
     log_file_name="moss_app.log",
-    handler_class: type[logging.FileHandler] = RotatingFileHandler # Default to standard rotating handler
+    handler_class: type[
+        logging.FileHandler
+    ] = RotatingFileHandler,  # Default to standard rotating handler
 ):
     """
     Configures the root logger for the application.
@@ -160,51 +169,56 @@ def setup_logging(
     root_logger = logging.getLogger()
 
     if not root_logger.hasHandlers():
-         # If the root logger has no handlers, configure it from scratch.
-         # Pass the desired handler class to the configuration function.
-         configure_logger(
-             root_logger,
-             root_log_level_console,
-             root_log_level_file,
-             log_file_name,
-             handler_class=handler_class
+        # If the root logger has no handlers, configure it from scratch.
+        # Pass the desired handler class to the configuration function.
+        configure_logger(
+            root_logger,
+            root_log_level_console,
+            root_log_level_file,
+            log_file_name,
+            handler_class=handler_class,
         )
     else:
-         # If handlers already exist, check if the file handler needs adjustment.
-         handler_updated = False
-         for handler in root_logger.handlers:
-             # Identify the relevant file handler based on its type and filename.
-             # Check if it's a FileHandler subclass and has a baseFilename attribute matching the target log file.
-             if isinstance(handler, logging.FileHandler) and getattr(handler, 'baseFilename', None) and getattr(handler, 'baseFilename', '').endswith(log_file_name):
-                 # Check if the existing handler is of the type we intended to use.
-                 if not isinstance(handler, handler_class):
-                      root_logger.warning(
-                          f"Root logger has existing handler of wrong type ({type(handler).__name__}) "
-                          f"for {log_file_name}. Expected {handler_class.__name__}. "
-                          "Reconfiguration might be needed manually or on restart."
-                        )
-                 # Check if the existing handler's level matches the desired file level.
-                 elif handler.level != root_log_level_file:
-                     root_logger.info(
-                         f"Updating existing file handler level for root logger to "
-                         f"{logging.getLevelName(root_log_level_file)}"
+        # If handlers already exist, check if the file handler needs adjustment.
+        handler_updated = False
+        for handler in root_logger.handlers:
+            # Identify the relevant file handler based on its type and filename.
+            # Check if it's a FileHandler subclass and has a baseFilename attribute matching the target log file.
+            if (
+                isinstance(handler, logging.FileHandler)
+                and getattr(handler, "baseFilename", None)
+                and getattr(handler, "baseFilename", "").endswith(log_file_name)
+            ):
+                # Check if the existing handler is of the type we intended to use.
+                if not isinstance(handler, handler_class):
+                    root_logger.warning(
+                        f"Root logger has existing handler of wrong type ({type(handler).__name__}) "
+                        f"for {log_file_name}. Expected {handler_class.__name__}. "
+                        "Reconfiguration might be needed manually or on restart."
                     )
-                     handler.setLevel(root_log_level_file)
-                 handler_updated = True
-                 # Assume only one file handler corresponds to this log file name.
-                 break
+                # Check if the existing handler's level matches the desired file level.
+                elif handler.level != root_log_level_file:
+                    root_logger.info(
+                        f"Updating existing file handler level for root logger to "
+                        f"{logging.getLevelName(root_log_level_file)}"
+                    )
+                    handler.setLevel(root_log_level_file)
+                handler_updated = True
+                # Assume only one file handler corresponds to this log file name.
+                break
 
-         if handler_updated:
-             root_logger.info(
-                 f"Root logger already configured. Ensured file level is "
-                 f"{logging.getLevelName(root_log_level_file)} for handler type {handler_class.__name__}."
+        if handler_updated:
+            root_logger.info(
+                f"Root logger already configured. Ensured file level is "
+                f"{logging.getLevelName(root_log_level_file)} for handler type {handler_class.__name__}."
             )
-         else:
-              # Log a warning if root logger was configured but no matching handler was found to update.
-              root_logger.warning(
-                  f"Root logger already configured, but no matching file handler found "
-                  f"for {log_file_name} and type {handler_class.__name__} to update level."
-                )
+        else:
+            # Log a warning if root logger was configured but no matching handler was found to update.
+            root_logger.warning(
+                f"Root logger already configured, but no matching file handler found "
+                f"for {log_file_name} and type {handler_class.__name__} to update level."
+            )
+
 
 # --- Example Usage in other modules ---
 # import logging

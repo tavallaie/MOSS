@@ -18,9 +18,10 @@ from .base import BaseModel
 
 # Use TYPE_CHECKING to prevent circular imports for type hints
 if TYPE_CHECKING:
-    from .field import Field # For the one-to-many relationship to Fields
+    from .field import Field  # For the one-to-many relationship to Fields
 
 logger = logging.getLogger(__name__)
+
 
 class Domain(BaseModel, Base):
     """
@@ -37,13 +38,16 @@ class Domain(BaseModel, Base):
         description: An optional longer description of the Domain's scope.
         fields: One-to-many relationship linking this Domain to its constituent Fields.
     """
+
     __tablename__ = "domains"
 
     # --- Identifiers and Details ---
     # Core attributes defining the Domain based on OpenAlex data.
 
     # OpenAlex unique ID for the Domain. Indexed for fast lookups.
-    openalex_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    openalex_id: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
 
     # Human-readable name. Indexed for searching and display.
     display_name: Mapped[str] = mapped_column(String, index=True, nullable=False)
@@ -60,21 +64,20 @@ class Domain(BaseModel, Base):
     # `cascade="all, delete-orphan"` ensures that if a Domain is deleted, all its
     # associated Fields are also removed from the database.
     fields: Mapped[List["Field"]] = relationship(
-        back_populates="domain",
-        cascade="all, delete-orphan"
+        back_populates="domain", cascade="all, delete-orphan"
     )
 
     # --- Table Arguments ---
     # Explicitly define indexes for optimized query performance.
     __table_args__ = (
         # Redundant index on openalex_id (already unique), but explicitly defined for clarity.
-        Index('ix_domains_openalex_id', 'openalex_id'),
+        Index("ix_domains_openalex_id", "openalex_id"),
         # Index on display_name for faster text-based searches or sorting.
-        Index('ix_domains_display_name', 'display_name'),
+        Index("ix_domains_display_name", "display_name"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Uses getattr for id in case the instance isn't flushed yet
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         return f"<Domain(id={obj_id}, name='{self.display_name}', oa_id='{self.openalex_id}')>"

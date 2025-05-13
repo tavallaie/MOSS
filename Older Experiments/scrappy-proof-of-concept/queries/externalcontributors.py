@@ -1,12 +1,20 @@
-from sqlalchemy import func
-from models.models import User, Issue, IssueComment, PRReviewComment, PullRequest, Repository
 from db.database import get_db_session
+from models.models import (
+    Issue,
+    IssueComment,
+    PRReviewComment,
+    PullRequest,
+    Repository,
+    User,
+)
+from sqlalchemy import func
 from sqlalchemy.orm import Session
+
 
 def get_engaged_non_pr_users(session: Session, repo_id: int):
     repo = session.query(Repository).filter_by(id=repo_id).first()
     if not repo:
-        print(f"Repository with id {repo_id} not found.")
+        print(f'Repository with id {repo_id} not found.')
         return []
     engaged_users_subq = (
         session.query(User.id)
@@ -38,24 +46,23 @@ def get_engaged_non_pr_users(session: Session, repo_id: int):
     )
     return users_never_pr
 
+
 def main(repo_id):
     with get_db_session() as session:
         repo_obj = session.query(Repository).filter_by(id=repo_id).first()
         repo_name = repo_obj.full_name if repo_obj else str(repo_id)
         engaged_bystanders = get_engaged_non_pr_users(session, repo_id)
-        print(f"Users who engaged but never opened a PR for repository: {repo_name}")
+        print(f'Users who engaged but never opened a PR for repository: {repo_name}')
         for user in engaged_bystanders:
-            issue_count = session.query(func.count(Issue.id)).filter(
-                Issue.user_id == user.id,
-                Issue.repository_id == repo_id
-            ).scalar()
+            issue_count = (
+                session.query(func.count(Issue.id))
+                .filter(Issue.user_id == user.id, Issue.repository_id == repo_id)
+                .scalar()
+            )
             issue_comment_count = (
                 session.query(func.count(IssueComment.id))
                 .join(Issue, IssueComment.issue_id == Issue.id)
-                .filter(
-                    IssueComment.user_id == user.id,
-                    Issue.repository_id == repo_id
-                )
+                .filter(IssueComment.user_id == user.id, Issue.repository_id == repo_id)
                 .scalar()
             )
             pr_review_count = (
@@ -63,15 +70,16 @@ def main(repo_id):
                 .join(PullRequest, PRReviewComment.pr_id == PullRequest.id)
                 .filter(
                     PRReviewComment.user_id == user.id,
-                    PullRequest.repository_id == repo_id
+                    PullRequest.repository_id == repo_id,
                 )
                 .scalar()
             )
             org_info = user.company if user.company else user.type
             print(
-                f"- {user.login} (User ID={user.id}), Issues={issue_count}, "
-                f"Comments={issue_comment_count}, PRReviews={pr_review_count}, Org={org_info}"
+                f'- {user.login} (User ID={user.id}), Issues={issue_count}, '
+                f'Comments={issue_comment_count}, PRReviews={pr_review_count}, Org={org_info}'
             )
 
-if __name__ == "__main__":
-    print("This module is intended to be run from run_queries.py")
+
+if __name__ == '__main__':
+    print('This module is intended to be run from run_queries.py')

@@ -43,7 +43,7 @@ DOI_REGEX = re.compile(
     # is used below to refine the results, as lookaheads can become overly complex
     # and might still miss edge cases or exclude valid characters at the end of a DOI.
     """,
-    re.VERBOSE | re.IGNORECASE
+    re.VERBOSE | re.IGNORECASE,
 )
 
 # SIMPLE_DOI_FORMAT_CHECK: A simpler regex for basic format validation.
@@ -54,6 +54,7 @@ SIMPLE_DOI_FORMAT_CHECK = re.compile(r"^10\.\d{4,9}/.+")
 
 
 # --- DOI Utility Functions ---
+
 
 def extract_dois_from_text(text: str) -> List[str]:
     """
@@ -88,16 +89,16 @@ def extract_dois_from_text(text: str) -> List[str]:
         # Parentheses, brackets, and angle brackets are sometimes part of DOIs,
         # but often they are part of the surrounding text (e.g., citations).
         # This cleanup favors removing them if they appear at the very end.
-        chars_to_strip = '.,;)]}>'
+        chars_to_strip = ".,;)]}>"
         while cleaned and cleaned[-1] in chars_to_strip:
             cleaned = cleaned[:-1]
 
         # Add the cleaned DOI to the set if it's not empty after stripping.
         if cleaned:
-             # Optional enhancement: Validate format using is_valid_doi_format here?
-             # if is_valid_doi_format(cleaned):
-             #     cleaned_dois.add(cleaned)
-             cleaned_dois.add(cleaned) # Add regardless of strict format for now
+            # Optional enhancement: Validate format using is_valid_doi_format here?
+            # if is_valid_doi_format(cleaned):
+            #     cleaned_dois.add(cleaned)
+            cleaned_dois.add(cleaned)  # Add regardless of strict format for now
 
     # Return the unique DOIs as a sorted list.
     return sorted(list(cleaned_dois))
@@ -158,9 +159,9 @@ if __name__ == "__main__":
         "10.1000/xyz123",
         "10.123456789/suffix",
         "10.1016/j.cell.2020.01.014",
-        "10.123/abc", # Invalid prefix length
-        "9.9999/abc", # Invalid start
-        "doi:10.1101/12345", # Should be False as it checks the string itself
+        "10.123/abc",  # Invalid prefix length
+        "9.9999/abc",  # Invalid start
+        "doi:10.1101/12345",  # Should be False as it checks the string itself
         "",
         None,
     ]

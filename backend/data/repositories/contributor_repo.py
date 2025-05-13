@@ -11,12 +11,13 @@ import logging
 from typing import Optional, Dict, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError # General SQLAlchemy exception
+from sqlalchemy.exc import SQLAlchemyError  # General SQLAlchemy exception
 
 from .base_repository import BaseRepository
-from backend.data.models import Contributor # The specific SQLAlchemy model
+from backend.data.models import Contributor  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class ContributorRepository(BaseRepository[Contributor]):
     """
@@ -52,15 +53,24 @@ class ContributorRepository(BaseRepository[Contributor]):
         logger.debug(f"Getting Contributor by github_id: {github_id}")
         # Basic check if the session is active, useful for debugging transaction issues.
         if not self.db.is_active:
-            logger.warning(f"Session is inactive in get_by_github_id for GitHub ID {github_id}")
+            logger.warning(
+                f"Session is inactive in get_by_github_id for GitHub ID {github_id}"
+            )
             # Depending on application logic, could raise an error or return None.
             # Returning None might hide issues, raising might be better in strict contexts.
             return None
         try:
             # Query the Contributor model, filtering by the github_id column.
-            return self.db.query(self.model).filter(self.model.github_id == github_id).first()
+            return (
+                self.db.query(self.model)
+                .filter(self.model.github_id == github_id)
+                .first()
+            )
         except SQLAlchemyError as e:
-            logger.error(f"SQLAlchemyError during get_by_github_id for {github_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_by_github_id for {github_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     def get_by_login(self, *, login: str) -> Optional[Contributor]:
@@ -78,14 +88,16 @@ class ContributorRepository(BaseRepository[Contributor]):
         """
         logger.debug(f"Getting Contributor by login: {login}")
         if not self.db.is_active:
-             logger.warning(f"Session is inactive in get_by_login for login '{login}'")
-             return None
+            logger.warning(f"Session is inactive in get_by_login for login '{login}'")
+            return None
         try:
             # Query the Contributor model, filtering by the login column.
             return self.db.query(self.model).filter(self.model.login == login).first()
         except SQLAlchemyError as e:
-             logger.error(f"SQLAlchemyError during get_by_login for {login}: {e}", exc_info=True)
-             raise
+            logger.error(
+                f"SQLAlchemyError during get_by_login for {login}: {e}", exc_info=True
+            )
+            raise
 
     def get_or_create_by_github_id(
         self, *, github_id: int, obj_in_data: Dict[str, Any]
@@ -127,11 +139,15 @@ class ContributorRepository(BaseRepository[Contributor]):
                              The caller should handle rollback.
         """
         if not github_id:
-             raise ValueError("github_id cannot be empty for Contributor get_or_create")
+            raise ValueError("github_id cannot be empty for Contributor get_or_create")
         # Check session state at the beginning. Crucial for transactional integrity.
         if not self.db.is_active:
-             logger.error("Session is inactive at start of get_or_create_by_github_id for Contributor.")
-             raise RuntimeError("Database session is inactive, cannot perform get_or_create.")
+            logger.error(
+                "Session is inactive at start of get_or_create_by_github_id for Contributor."
+            )
+            raise RuntimeError(
+                "Database session is inactive, cannot perform get_or_create."
+            )
 
         try:
             # --- Step 1: Query First ---
@@ -139,16 +155,25 @@ class ContributorRepository(BaseRepository[Contributor]):
 
             if db_obj:
                 # --- Step 2a: Record Found - Check for Updates ---
-                logger.debug(f"Found existing Contributor GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates.")
+                logger.debug(
+                    f"Found existing Contributor GH ID {github_id} (DB ID: {db_obj.id}). Checking for updates."
+                )
                 updated = False
-                new_login = obj_in_data.get('login')
+                new_login = obj_in_data.get("login")
 
                 # Check if login needs update and handle potential uniqueness conflicts.
                 if new_login and db_obj.login != new_login:
-                    if not self.db.is_active: # Re-check session before subsequent query
-                        raise RuntimeError("Session became inactive before login conflict check during update.")
+                    if (
+                        not self.db.is_active
+                    ):  # Re-check session before subsequent query
+                        raise RuntimeError(
+                            "Session became inactive before login conflict check during update."
+                        )
                     existing_login_contributor = self.get_by_login(login=new_login)
-                    if existing_login_contributor and existing_login_contributor.id != db_obj.id:
+                    if (
+                        existing_login_contributor
+                        and existing_login_contributor.id != db_obj.id
+                    ):
                         # Log a warning but proceed without changing the login to avoid unique constraint error.
                         # Alternatively, could raise an error here depending on desired behavior.
                         logger.warning(
@@ -156,51 +181,68 @@ class ContributorRepository(BaseRepository[Contributor]):
                             f"because it's already assigned to Contributor DB ID {existing_login_contributor.id}. Skipping login update."
                         )
                     else:
-                        logger.info(f"Updating login for Contributor {db_obj.id} from '{db_obj.login}' to '{new_login}'")
+                        logger.info(
+                            f"Updating login for Contributor {db_obj.id} from '{db_obj.login}' to '{new_login}'"
+                        )
                         db_obj.login = new_login
                         updated = True
 
                 # Check and update other fields if they differ.
-                if obj_in_data.get('type') is not None and db_obj.type != obj_in_data.get('type'):
-                    db_obj.type = obj_in_data['type']
+                if obj_in_data.get(
+                    "type"
+                ) is not None and db_obj.type != obj_in_data.get("type"):
+                    db_obj.type = obj_in_data["type"]
                     updated = True
-                if obj_in_data.get('avatar_url') is not None and db_obj.avatar_url != obj_in_data.get('avatar_url'):
-                     db_obj.avatar_url = obj_in_data['avatar_url']
-                     updated = True
-                if obj_in_data.get('html_url') is not None and db_obj.html_url != obj_in_data.get('html_url'):
-                     db_obj.html_url = obj_in_data['html_url']
-                     updated = True
+                if obj_in_data.get(
+                    "avatar_url"
+                ) is not None and db_obj.avatar_url != obj_in_data.get("avatar_url"):
+                    db_obj.avatar_url = obj_in_data["avatar_url"]
+                    updated = True
+                if obj_in_data.get(
+                    "html_url"
+                ) is not None and db_obj.html_url != obj_in_data.get("html_url"):
+                    db_obj.html_url = obj_in_data["html_url"]
+                    updated = True
                 # Add checks for other relevant fields here...
 
                 if updated:
                     # Add the modified object to the session to mark it for update on commit.
                     self.db.add(db_obj)
-                    logger.info(f"Contributor {db_obj.id} marked for update in the current session.")
+                    logger.info(
+                        f"Contributor {db_obj.id} marked for update in the current session."
+                    )
                     # Optional: Flush here if the caller needs the updated state
                     # reflected in the DB *before* the final commit.
                     # self.db.flush()
                     # self.db.refresh(db_obj) # Refresh if flushed
-                return db_obj # Return the existing (potentially updated) object.
+                return db_obj  # Return the existing (potentially updated) object.
 
             else:
                 # --- Step 2b: Record Not Found - Create New ---
-                logger.debug(f"Contributor with GH ID {github_id} not found. Preparing to create new.")
+                logger.debug(
+                    f"Contributor with GH ID {github_id} not found. Preparing to create new."
+                )
                 # Ensure the github_id is included in the data used for creation.
                 obj_in_data["github_id"] = github_id
                 # Create a new model instance.
                 new_obj = self.model(**obj_in_data)
-                self.db.add(new_obj) # Add the new object to the session.
+                self.db.add(new_obj)  # Add the new object to the session.
                 # Flush the session to send the INSERT statement to the database.
                 # This assigns the primary key (if auto-generated) and checks constraints.
                 self.db.flush()
                 # Refresh the instance to load any database-generated values (e.g., defaults).
                 self.db.refresh(new_obj)
-                logger.info(f"Successfully created and flushed new Contributor GH ID {github_id} (DB ID: {new_obj.id})")
-                return new_obj # Return the newly created object.
+                logger.info(
+                    f"Successfully created and flushed new Contributor GH ID {github_id} (DB ID: {new_obj.id})"
+                )
+                return new_obj  # Return the newly created object.
 
         except SQLAlchemyError as e:
             # Log the error occurred during the get_or_create process.
-            logger.error(f"SQLAlchemyError during get_or_create for Contributor GH ID {github_id}: {e}", exc_info=True)
+            logger.error(
+                f"SQLAlchemyError during get_or_create for Contributor GH ID {github_id}: {e}",
+                exc_info=True,
+            )
             # Critical: Do NOT rollback here. The caller manages the transaction boundary.
             # self.db.rollback() # <-- DO NOT DO THIS HERE
-            raise # Re-raise the exception for the caller to handle.
+            raise  # Re-raise the exception for the caller to handle.

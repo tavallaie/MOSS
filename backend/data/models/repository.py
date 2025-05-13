@@ -9,7 +9,14 @@ This module defines the Repository model, representing a single code repository
 from sqlalchemy.dialects.postgresql import JSONB
 from typing import List, Optional, TYPE_CHECKING, Dict, Any
 from sqlalchemy import (
-    String, Integer, Text, Boolean, DateTime, BigInteger, ForeignKey, Index
+    String,
+    Integer,
+    Text,
+    Boolean,
+    DateTime,
+    BigInteger,
+    ForeignKey,
+    Index,
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -25,6 +32,7 @@ if TYPE_CHECKING:
     from .contributor import Contributor
     from .doi_reference import DOIReference
     # If relationships to Issues, PullRequests, etc., are added here, import them too.
+
 
 class Repository(BaseModel, Base):
     """
@@ -62,17 +70,22 @@ class Repository(BaseModel, Base):
         contributors: Many-to-many relationship linking to Contributors via the association table.
         doi_references: One-to-many relationship linking to DOIReference records found within this repository.
     """
+
     __tablename__ = "repositories"
 
     # --- GitHub Identifiers and Core Metadata ---
     # Essential information retrieved directly from the source platform (e.g., GitHub).
 
     # GitHub's unique numerical ID. Indexed for fast lookups.
-    github_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
+    github_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
     # Repository name (e.g., 'my-project').
     name: Mapped[str] = mapped_column(String, nullable=False)
     # Full name including owner (e.g., 'my-org/my-project'). Unique and indexed.
-    full_name: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    full_name: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
     # User-provided description. Text allows for longer content.
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Link to an external project website.
@@ -92,7 +105,9 @@ class Repository(BaseModel, Base):
 
     # Basic engagement metrics from GitHub. Defaults ensure non-null integer values.
     stargazers_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    watchers_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False) # GitHub API: 'subscribers_count'
+    watchers_count: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )  # GitHub API: 'subscribers_count'
     forks_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     open_issues_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Flag indicating if the repository is a direct copy (fork) of another.
@@ -100,9 +115,15 @@ class Repository(BaseModel, Base):
 
     # --- GitHub Timestamps ---
     # Stores key lifecycle timestamps from GitHub, preserving timezone information.
-    gh_created_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    gh_updated_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    gh_pushed_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    gh_created_at: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    gh_updated_at: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    gh_pushed_at: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # --- Enriched Metadata (Added Fields) ---
     # Storing structured data like topics and license info.
@@ -116,7 +137,9 @@ class Repository(BaseModel, Base):
 
     # --- Foreign Key to Owner ---
     # Links the repository to its owning User or Organization. Indexed.
-    owner_id: Mapped[int] = mapped_column(ForeignKey("owners.id"), index=True, nullable=False)
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("owners.id"), index=True, nullable=False
+    )
 
     # --- Relationships ---
     # Defines connections to other related entities.
@@ -129,8 +152,7 @@ class Repository(BaseModel, Base):
     # `secondary` specifies the association table ('repository_contributors').
     # `back_populates` links to the 'repositories' collection on the Contributor model.
     contributors: Mapped[List["Contributor"]] = relationship(
-        secondary="repository_contributors",
-        back_populates="repositories"
+        secondary="repository_contributors", back_populates="repositories"
     )
 
     # One-to-Many relationship to discovered DOI references within this repository.
@@ -138,8 +160,7 @@ class Repository(BaseModel, Base):
     # `cascade="all, delete-orphan"` ensures that if a Repository is deleted, all
     # associated DOIReference records are also deleted.
     doi_references: Mapped[List["DOIReference"]] = relationship(
-        back_populates="repository",
-        cascade="all, delete-orphan"
+        back_populates="repository", cascade="all, delete-orphan"
     )
 
     # --- Table Arguments ---
@@ -147,11 +168,11 @@ class Repository(BaseModel, Base):
     __table_args__ = (
         # Index on the primary language for efficient filtering or grouping by language.
         # Note: index=True on the column definition above achieves the same.
-        Index('ix_repositories_language', 'language'),
+        Index("ix_repositories_language", "language"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Safely access 'id' which comes from BaseModel
-        obj_id = getattr(self, 'id', None)
+        obj_id = getattr(self, "id", None)
         return f"<Repository(id={obj_id}, full_name='{self.full_name}')>"

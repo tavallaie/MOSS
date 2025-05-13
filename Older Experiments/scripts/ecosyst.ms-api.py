@@ -260,7 +260,7 @@ def process_paper_mentions(paper_mentions_url):
                 proj_dict = project_response.json()
                 if 'ecosystem' in proj_dict:
                     paper_mentions.append(
-                        f"{proj_dict['ecosystem']}:{proj_dict['name']}"
+                        f'{proj_dict["ecosystem"]}:{proj_dict["name"]}'
                     )
             except requests.exceptions.RequestException as e:
                 print(f'Request failed for project {project_url}: {e}')
@@ -305,7 +305,7 @@ def process_project(project_u):
                 {
                     'ID': project_dict['czi_id'],
                     'Label': 'Project',
-                    'Name': f"{project_dict['ecosystem']}:{project_dict['name']}",
+                    'Name': f'{project_dict["ecosystem"]}:{project_dict["name"]}',
                     'Homepage': home,
                     'repository_url': repo,
                 }
@@ -317,21 +317,21 @@ def process_project(project_u):
                 [shared_resources.project_df, this_project]
             ).drop_duplicates(subset=['ID'])
 
-        project_mentions_url = f"{project_dict['mentions_url']}?page=1&per_page=1000"
+        project_mentions_url = f'{project_dict["mentions_url"]}?page=1&per_page=1000'
         mentions_response = requests.get(
             project_mentions_url, headers=headers, timeout=10
         )
         mentions_dict = mentions_response.json()
         print(f'Querying: {project_u}')
         print(
-            f"There are {mentions_response.headers['total-pages']} pages of mentions to fetch."
+            f'There are {mentions_response.headers["total-pages"]} pages of mentions to fetch.'
         )
-        print(f"For a total of: {mentions_response.headers['total-count']} papers")
+        print(f'For a total of: {mentions_response.headers["total-count"]} papers')
         paper_urls_list = []
         total_pages = int(mentions_response.headers['total-pages'])
         for page_num in range(1, total_pages + 1):
             project_mentions_url = (
-                f"{project_dict['mentions_url']}?page={page_num}&per_page=1000"
+                f'{project_dict["mentions_url"]}?page={page_num}&per_page=1000'
             )
             mentions_dict = requests.get(
                 project_mentions_url, headers=headers, timeout=10

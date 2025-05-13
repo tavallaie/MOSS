@@ -8,7 +8,7 @@ relationship: 'citing_work' cites 'cited_work'.
 
 import logging
 from typing import TYPE_CHECKING
-from sqlalchemy import Integer, ForeignKey, Index
+from sqlalchemy import ForeignKey, Index
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .work import Work
 
 logger = logging.getLogger(__name__)
+
 
 class WorkCitation(Base):
     """
@@ -41,6 +42,7 @@ class WorkCitation(Base):
         citing_work: Relationship back to the Work object that is citing.
         cited_work: Relationship back to the Work object that is being cited.
     """
+
     __tablename__ = "work_citations"
 
     # --- Composite Primary Key and Foreign Keys ---
@@ -68,7 +70,7 @@ class WorkCitation(Base):
     # (representing the list of works *cited by* that Work).
     citing_work: Mapped["Work"] = relationship(
         foreign_keys=[citing_work_id],
-        back_populates="references" # Corresponds to Work.references
+        back_populates="references",  # Corresponds to Work.references
     )
 
     # Relationship to the Work entity that is being cited (the cited work).
@@ -77,7 +79,7 @@ class WorkCitation(Base):
     # (representing the list of works *that cite* that Work).
     cited_work: Mapped["Work"] = relationship(
         foreign_keys=[cited_work_id],
-        back_populates="citations" # Corresponds to Work.citations
+        back_populates="citations",  # Corresponds to Work.citations
     )
 
     # --- Table Arguments ---
@@ -87,11 +89,12 @@ class WorkCitation(Base):
     # the citing work or only by the cited work (e.g., finding all references for a work,
     # or finding all citations of a work).
     __table_args__ = (
-        Index('ix_work_citations_citing_work_id', 'citing_work_id'),
-        Index('ix_work_citations_cited_work_id', 'cited_work_id'),
+        Index("ix_work_citations_citing_work_id", "citing_work_id"),
+        Index("ix_work_citations_cited_work_id", "cited_work_id"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
-        return (f"<WorkCitation(citing={self.citing_work_id}, "
-                f"cited={self.cited_work_id})>")
+        return (
+            f"<WorkCitation(citing={self.citing_work_id}, cited={self.cited_work_id})>"
+        )

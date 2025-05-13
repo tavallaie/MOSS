@@ -13,13 +13,14 @@ import logging
 import base64
 import binascii
 import requests
-import re # Used for parsing Link headers
+import re  # Used for parsing Link headers
 from typing import Optional, List, Dict, Any, Tuple
 
 # Import base client and custom errors
 from .client_base import ClientBase, ApiClientError
 
 logger = logging.getLogger(__name__)
+
 
 class GitHubClient(ClientBase):
     """
@@ -31,6 +32,7 @@ class GitHubClient(ClientBase):
     Leverages `ClientBase` for underlying request execution, retries, and
     rate limit handling.
     """
+
     def __init__(self):
         """
         Initializes the GitHubClient.
@@ -44,17 +46,21 @@ class GitHubClient(ClientBase):
         super().__init__(base_url="https://api.github.com")
         self.token = self.settings.GITHUB_API_TOKEN
         if not self.token:
-            logger.error("GITHUB_API_TOKEN is not configured in settings. GitHubClient requires a token.")
+            logger.error(
+                "GITHUB_API_TOKEN is not configured in settings. GitHubClient requires a token."
+            )
             raise ValueError("GitHub API token is required but not set.")
         # Prepare authentication and API version headers for GitHub requests
         self.auth_headers = {
             "Authorization": f"Bearer {self.token}",
-            "Accept": "application/vnd.github.v3+json", # Request standard JSON format
-            "X-GitHub-Api-Version": "2022-11-28",      # Pin to a specific API version
+            "Accept": "application/vnd.github.v3+json",  # Request standard JSON format
+            "X-GitHub-Api-Version": "2022-11-28",  # Pin to a specific API version
         }
         logger.info("GitHubClient initialized successfully.")
 
-    def _parse_link_header(self, headers: requests.structures.CaseInsensitiveDict) -> Dict[str, str]:
+    def _parse_link_header(
+        self, headers: requests.structures.CaseInsensitiveDict
+    ) -> Dict[str, str]:
         """
         Parses the 'Link' HTTP header returned by GitHub API pagination responses.
 
@@ -73,10 +79,10 @@ class GitHubClient(ClientBase):
             if the 'Link' header is not present or cannot be parsed.
         """
         links = {}
-        link_header = headers.get('Link')
+        link_header = headers.get("Link")
         if link_header:
             # Split the header into individual link parts (separated by commas)
-            parts = link_header.split(',')
+            parts = link_header.split(",")
             for part in parts:
                 # Use regex to extract the URL and the relation type ('rel')
                 match = re.match(r'<\s*(.*?)\s*>;\s*rel="?(\w+)"?', part.strip())
@@ -85,7 +91,9 @@ class GitHubClient(ClientBase):
                     links[rel] = url
         return links
 
-    def _fetch_paginated_results(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def _fetch_paginated_results(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         """
         Retrieves all results from a paginated GitHub API endpoint.
 
@@ -107,7 +115,7 @@ class GitHubClient(ClientBase):
         """
         if params is None:
             params = {}
-        params["per_page"] = 100 # Request the maximum number of items per page
+        params["per_page"] = 100  # Request the maximum number of items per page
 
         all_items: List[Dict[str, Any]] = []
         # Start with the initial endpoint URL constructed from the base URL
@@ -115,7 +123,9 @@ class GitHubClient(ClientBase):
         page_num = 1
 
         while current_url:
-            logger.debug(f"Fetching page {page_num} for endpoint '{endpoint}' from URL: {current_url}")
+            logger.debug(
+                f"Fetching page {page_num} for endpoint '{endpoint}' from URL: {current_url}"
+            )
             try:
                 # Make the request. For subsequent pages (page_num > 1),
                 # current_url is an absolute URL from the Link header, so pass
@@ -125,58 +135,90 @@ class GitHubClient(ClientBase):
                     "GET",
                     current_url,
                     params=params if page_num == 1 else None,
-                    headers=self.auth_headers
+                    headers=self.auth_headers,
                 )
 
                 # Handle specific non-OK statuses during pagination
                 if response.status_code == 404:
-                     logger.warning(f"Endpoint not found (404) during pagination: {current_url}. Stopping pagination.")
-                     break # Stop if the resource disappears mid-fetch
+                    logger.warning(
+                        f"Endpoint not found (404) during pagination: {current_url}. Stopping pagination."
+                    )
+                    break  # Stop if the resource disappears mid-fetch
 
                 # Let ClientBase._request handle retries for 429/5xx.
                 # If we get here and it's not OK, it's likely a persistent issue.
                 elif not response.ok:
-                    logger.error(f"GitHub API error fetching paginated results (page {page_num}, URL: {current_url}). Status: {response.status_code}, Response: {response.text[:200]}")
+                    logger.error(
+                        f"GitHub API error fetching paginated results (page {page_num}, URL: {current_url}). Status: {response.status_code}, Response: {response.text[:200]}"
+                    )
                     # Raise an error to signal failure to the caller
-                    raise ApiClientError(f"Failed to fetch page {page_num} from {endpoint}", status_code=response.status_code)
+                    raise ApiClientError(
+                        f"Failed to fetch page {page_num} from {endpoint}",
+                        status_code=response.status_code,
+                    )
 
                 try:
                     page_data = response.json()
                     # Expect a list of items from paginated endpoints
                     if not isinstance(page_data, list):
-                        logger.error(f"Unexpected response format (expected list, got {type(page_data)}) for paginated results: {current_url}. Response: {str(page_data)[:200]}")
-                        raise ApiClientError(f"Unexpected response format from {endpoint}", status_code=response.status_code)
+                        logger.error(
+                            f"Unexpected response format (expected list, got {type(page_data)}) for paginated results: {current_url}. Response: {str(page_data)[:200]}"
+                        )
+                        raise ApiClientError(
+                            f"Unexpected response format from {endpoint}",
+                            status_code=response.status_code,
+                        )
 
                     all_items.extend(page_data)
-                    logger.debug(f"Fetched {len(page_data)} items on page {page_num}. Total items so far: {len(all_items)}")
+                    logger.debug(
+                        f"Fetched {len(page_data)} items on page {page_num}. Total items so far: {len(all_items)}"
+                    )
 
                     # Parse the Link header to find the URL for the next page
                     links = self._parse_link_header(response.headers)
-                    current_url = links.get("next") # Will be None if no 'next' link
+                    current_url = links.get("next")  # Will be None if no 'next' link
 
                     if current_url:
                         page_num += 1
                     else:
-                        logger.debug(f"No 'next' link found. Reached end of results for {endpoint}.")
+                        logger.debug(
+                            f"No 'next' link found. Reached end of results for {endpoint}."
+                        )
 
                 except requests.exceptions.JSONDecodeError as json_err:
-                    logger.error(f"Failed to decode JSON response from {current_url} (page {page_num}): {json_err}", exc_info=True)
-                    raise ApiClientError(f"Failed to decode JSON from {endpoint}", status_code=response.status_code) from json_err
+                    logger.error(
+                        f"Failed to decode JSON response from {current_url} (page {page_num}): {json_err}",
+                        exc_info=True,
+                    )
+                    raise ApiClientError(
+                        f"Failed to decode JSON from {endpoint}",
+                        status_code=response.status_code,
+                    ) from json_err
 
             except ApiClientError as e:
-                 # Propagate API client errors (connection, timeout after retries, etc.)
-                 logger.error(f"API Client error during pagination for {endpoint} (page {page_num}): {e}")
-                 raise e
+                # Propagate API client errors (connection, timeout after retries, etc.)
+                logger.error(
+                    f"API Client error during pagination for {endpoint} (page {page_num}): {e}"
+                )
+                raise e
             except Exception as e:
-                 # Catch any other unexpected errors during the loop
-                 logger.exception(f"Unexpected error during pagination fetch for {endpoint} (page {page_num})")
-                 # Wrap in ApiClientError for consistent error handling upstream
-                 raise ApiClientError(f"Unexpected error during pagination for {endpoint}: {e}") from e
+                # Catch any other unexpected errors during the loop
+                logger.exception(
+                    f"Unexpected error during pagination fetch for {endpoint} (page {page_num})"
+                )
+                # Wrap in ApiClientError for consistent error handling upstream
+                raise ApiClientError(
+                    f"Unexpected error during pagination for {endpoint}: {e}"
+                ) from e
 
-        logger.info(f"Finished fetching paginated results for {endpoint}. Total items retrieved: {len(all_items)}")
+        logger.info(
+            f"Finished fetching paginated results for {endpoint}. Total items retrieved: {len(all_items)}"
+        )
         return all_items
 
-    def get_repository_metadata(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
+    def get_repository_metadata(
+        self, owner: str, repo: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Fetches metadata for a specific GitHub repository.
 
@@ -204,26 +246,40 @@ class GitHubClient(ClientBase):
                 logger.warning(f"Repository not found: {owner}/{repo} (404)")
                 return None
             elif response.status_code == 403:
-                 logger.error(f"Access forbidden for repository: {owner}/{repo} (403). Check token permissions or rate limits.")
-                 # Raise a specific error for auth/permission issues
-                 raise ApiClientError(f"Access forbidden for repository {owner}/{repo} (403). Check token permissions.", status_code=403)
+                logger.error(
+                    f"Access forbidden for repository: {owner}/{repo} (403). Check token permissions or rate limits."
+                )
+                # Raise a specific error for auth/permission issues
+                raise ApiClientError(
+                    f"Access forbidden for repository {owner}/{repo} (403). Check token permissions.",
+                    status_code=403,
+                )
             elif not response.ok:
                 # Log other non-404, non-403 errors but return None for now
-                logger.error(f"Failed to get repository metadata for {owner}/{repo}. Status: {response.status_code}, Response: {response.text[:200]}")
-                return None # Or consider raising ApiClientError for unexpected non-ok statuses
+                logger.error(
+                    f"Failed to get repository metadata for {owner}/{repo}. Status: {response.status_code}, Response: {response.text[:200]}"
+                )
+                return None  # Or consider raising ApiClientError for unexpected non-ok statuses
 
             # Attempt to parse JSON only if the request was successful
             return response.json()
 
         except requests.exceptions.JSONDecodeError as json_err:
-            logger.error(f"Failed to decode JSON response for {owner}/{repo} metadata: {json_err}", exc_info=True)
-            return None # Return None on decode error
-        except ApiClientError: # Catch client errors raised by _request or the 403 block
-            raise # Re-raise client errors
-        except Exception as e:
-             # Catch any other unexpected errors during processing
-             logger.exception(f"Unexpected error processing repository metadata for {owner}/{repo}")
-             raise # Re-raise unexpected errors
+            logger.error(
+                f"Failed to decode JSON response for {owner}/{repo} metadata: {json_err}",
+                exc_info=True,
+            )
+            return None  # Return None on decode error
+        except (
+            ApiClientError
+        ):  # Catch client errors raised by _request or the 403 block
+            raise  # Re-raise client errors
+        except Exception:
+            # Catch any other unexpected errors during processing
+            logger.exception(
+                f"Unexpected error processing repository metadata for {owner}/{repo}"
+            )
+            raise  # Re-raise unexpected errors
 
     def get_contributors(self, owner: str, repo: str) -> List[Dict[str, Any]]:
         """
@@ -250,33 +306,51 @@ class GitHubClient(ClientBase):
         endpoint = f"/repos/{owner}/{repo}/contributors"
         # Parameters to fetch maximum per page and exclude anonymous contributors
         params = {"per_page": 100, "anon": "false"}
-        logger.info(f"Fetching contributors (first page) for repository: {owner}/{repo}")
+        logger.info(
+            f"Fetching contributors (first page) for repository: {owner}/{repo}"
+        )
         try:
             # Fetch only the first page for now
-            response = self._request("GET", endpoint, headers=self.auth_headers, params=params)
+            response = self._request(
+                "GET", endpoint, headers=self.auth_headers, params=params
+            )
 
             if response.status_code == 404:
-                logger.warning(f"Repository not found when fetching contributors: {owner}/{repo} (404)")
+                logger.warning(
+                    f"Repository not found when fetching contributors: {owner}/{repo} (404)"
+                )
                 return []
             elif response.status_code == 403:
-                 logger.error(f"Access forbidden for contributors: {owner}/{repo} (403).")
-                 raise ApiClientError(f"Access forbidden for contributors {owner}/{repo} (403). Check token permissions.", status_code=403)
+                logger.error(
+                    f"Access forbidden for contributors: {owner}/{repo} (403)."
+                )
+                raise ApiClientError(
+                    f"Access forbidden for contributors {owner}/{repo} (403). Check token permissions.",
+                    status_code=403,
+                )
             elif not response.ok:
-                logger.error(f"Failed to get contributors for {owner}/{repo}. Status: {response.status_code}, Response: {response.text[:200]}")
-                return [] # Return empty list on other errors for now
+                logger.error(
+                    f"Failed to get contributors for {owner}/{repo}. Status: {response.status_code}, Response: {response.text[:200]}"
+                )
+                return []  # Return empty list on other errors for now
 
             contributors = response.json()
             # Ensure the response is a list as expected
             return contributors if isinstance(contributors, list) else []
 
         except requests.exceptions.JSONDecodeError as json_err:
-            logger.error(f"Failed to decode JSON response for {owner}/{repo} contributors: {json_err}", exc_info=True)
+            logger.error(
+                f"Failed to decode JSON response for {owner}/{repo} contributors: {json_err}",
+                exc_info=True,
+            )
             return []
         except ApiClientError:
-            raise # Re-raise client errors
-        except Exception as e:
-             logger.exception(f"Unexpected error processing contributors for {owner}/{repo}")
-             raise # Re-raise unexpected errors
+            raise  # Re-raise client errors
+        except Exception:
+            logger.exception(
+                f"Unexpected error processing contributors for {owner}/{repo}"
+            )
+            raise  # Re-raise unexpected errors
 
     def get_file_content(self, owner: str, repo: str, path: str) -> Optional[str]:
         """
@@ -306,42 +380,68 @@ class GitHubClient(ClientBase):
         logger.info(f"Fetching file content for: {owner}/{repo}/{path}")
         try:
             # Use a slightly longer timeout for potentially large file content
-            response = self._request("GET", endpoint, headers=self.auth_headers, timeout=45)
+            response = self._request(
+                "GET", endpoint, headers=self.auth_headers, timeout=45
+            )
 
             if response.status_code == 404:
-                logger.warning(f"File or repository not found: {owner}/{repo}/{path} (404)")
+                logger.warning(
+                    f"File or repository not found: {owner}/{repo}/{path} (404)"
+                )
                 return None
             elif response.status_code == 403:
-                 logger.error(f"Access forbidden for file content: {owner}/{repo}/{path} (403).")
-                 raise ApiClientError(f"Access forbidden for file content {owner}/{repo}/{path} (403).", status_code=403)
+                logger.error(
+                    f"Access forbidden for file content: {owner}/{repo}/{path} (403)."
+                )
+                raise ApiClientError(
+                    f"Access forbidden for file content {owner}/{repo}/{path} (403).",
+                    status_code=403,
+                )
             elif not response.ok:
-                 # Log other non-404, non-403 errors
-                 logger.error(f"HTTP error {response.status_code} fetching file content for {owner}/{repo}/{path}: {response.text[:200]}")
-                 return None # Return None for now
+                # Log other non-404, non-403 errors
+                logger.error(
+                    f"HTTP error {response.status_code} fetching file content for {owner}/{repo}/{path}: {response.text[:200]}"
+                )
+                return None  # Return None for now
 
             try:
                 file_data = response.json()
             except requests.exceptions.JSONDecodeError as json_err:
                 # Handle cases where the response is not valid JSON
-                logger.error(f"Failed to decode JSON response for file {owner}/{repo}/{path}: {json_err}", exc_info=True)
-                logger.debug(f"Response text causing decode error: {response.text[:500]}")
+                logger.error(
+                    f"Failed to decode JSON response for file {owner}/{repo}/{path}: {json_err}",
+                    exc_info=True,
+                )
+                logger.debug(
+                    f"Response text causing decode error: {response.text[:500]}"
+                )
                 return None
 
             # Check if the response indicates a directory listing instead of file content
-            if isinstance(file_data, list) or (isinstance(file_data, dict) and file_data.get('type') == 'dir'):
-                logger.warning(f"Path provided points to a directory, not a file: {owner}/{repo}/{path}")
+            if isinstance(file_data, list) or (
+                isinstance(file_data, dict) and file_data.get("type") == "dir"
+            ):
+                logger.warning(
+                    f"Path provided points to a directory, not a file: {owner}/{repo}/{path}"
+                )
                 return None
             # Ensure the response is a dictionary for file content
             if not isinstance(file_data, dict):
-                 logger.error(f"Unexpected response format (not a dict/list) for file content: {owner}/{repo}/{path}. Got {type(file_data)}")
-                 return None
+                logger.error(
+                    f"Unexpected response format (not a dict/list) for file content: {owner}/{repo}/{path}. Got {type(file_data)}"
+                )
+                return None
 
             encoding = file_data.get("encoding")
-            content = file_data.get("content") # Base64 encoded string or potentially null
+            content = file_data.get(
+                "content"
+            )  # Base64 encoded string or potentially null
 
             if encoding == "base64":
                 if not content or not isinstance(content, str):
-                    logger.warning(f"Expected base64 content string, but found none or invalid type for {owner}/{repo}/{path}")
+                    logger.warning(
+                        f"Expected base64 content string, but found none or invalid type for {owner}/{repo}/{path}"
+                    )
                     return None
                 try:
                     # Decode the base64 string into bytes
@@ -351,34 +451,49 @@ class GitHubClient(ClientBase):
                         return decoded_bytes.decode("utf-8")
                     except UnicodeDecodeError:
                         # Fallback to latin-1 if UTF-8 fails (common for some legacy files)
-                        logger.warning(f"UTF-8 decoding failed for {owner}/{repo}/{path}. Attempting latin-1 decoding.")
+                        logger.warning(
+                            f"UTF-8 decoding failed for {owner}/{repo}/{path}. Attempting latin-1 decoding."
+                        )
                         return decoded_bytes.decode("latin-1")
                 except (binascii.Error, ValueError) as decode_error:
                     # Handle errors during base64 decoding itself
-                    logger.error(f"Base64 decoding failed for {owner}/{repo}/{path}: {decode_error}")
+                    logger.error(
+                        f"Base64 decoding failed for {owner}/{repo}/{path}: {decode_error}"
+                    )
                     # Raise a specific error indicating decoding failure
-                    raise ValueError(f"Failed to decode base64 content for file {path}") from decode_error
+                    raise ValueError(
+                        f"Failed to decode base64 content for file {path}"
+                    ) from decode_error
 
             elif content is not None:
-                 # Handle cases where encoding is not base64 (e.g., 'none' or potentially others)
-                 # Treat the content as a plain string if available.
-                 logger.info(f"File {owner}/{repo}/{path} has encoding '{encoding}'. Returning content directly.")
-                 return str(content)
+                # Handle cases where encoding is not base64 (e.g., 'none' or potentially others)
+                # Treat the content as a plain string if available.
+                logger.info(
+                    f"File {owner}/{repo}/{path} has encoding '{encoding}'. Returning content directly."
+                )
+                return str(content)
             else:
-                 # Handle cases where content is missing or null
-                 logger.warning(f"No content found (encoding: {encoding}) in response for {owner}/{repo}/{path}")
-                 return None
+                # Handle cases where content is missing or null
+                logger.warning(
+                    f"No content found (encoding: {encoding}) in response for {owner}/{repo}/{path}"
+                )
+                return None
 
         except ApiClientError:
-            raise # Re-raise client-level errors
+            raise  # Re-raise client-level errors
         except ValueError as ve:
-             # Catch the ValueError raised by decoding failure
-             logger.error(f"Data processing error for file {owner}/{repo}/{path}: {ve}", exc_info=False)
-             raise ve # Re-raise the specific ValueError
-        except Exception as e:
-             # Catch any other unexpected errors
-             logger.exception(f"Unexpected error fetching file content for {owner}/{repo}/{path}")
-             raise # Re-raise unexpected errors
+            # Catch the ValueError raised by decoding failure
+            logger.error(
+                f"Data processing error for file {owner}/{repo}/{path}: {ve}",
+                exc_info=False,
+            )
+            raise ve  # Re-raise the specific ValueError
+        except Exception:
+            # Catch any other unexpected errors
+            logger.exception(
+                f"Unexpected error fetching file content for {owner}/{repo}/{path}"
+            )
+            raise  # Re-raise unexpected errors
 
     def search_repositories(
         self, query: str, max_results: int = 1000
@@ -414,19 +529,23 @@ class GitHubClient(ClientBase):
 
         endpoint = "/search/repositories"
         page = 1
-        per_page = 100 # Use max allowed per page by GitHub API
+        per_page = 100  # Use max allowed per page by GitHub API
         all_items = []
         total_count = 0
         # GitHub Search API limitation: only first 1000 results are accessible
         github_max_results = 1000
         # Calculate max pages needed based on GitHub limit, not total_count
-        max_pages = (github_max_results + per_page - 1) // per_page # Typically 10 pages
+        max_pages = (
+            github_max_results + per_page - 1
+        ) // per_page  # Typically 10 pages
 
         # Adjust max_results if it exceeds the GitHub limit
         effective_max_results = min(max_results, github_max_results)
-        logger.info(f"Searching repositories with query: '{query}'. Target results: {max_results}, Effective limit: {effective_max_results}")
+        logger.info(
+            f"Searching repositories with query: '{query}'. Target results: {max_results}, Effective limit: {effective_max_results}"
+        )
 
-        next_url: Optional[str] = None # Store the next page URL from Link header
+        next_url: Optional[str] = None  # Store the next page URL from Link header
 
         # Loop until we reach the desired number of results, the GitHub limit,
         # or run out of pages.
@@ -434,7 +553,7 @@ class GitHubClient(ClientBase):
             # Prepare parameters only for the first request or if not using next_url
             params = None
             if not next_url:
-                 params = {
+                params = {
                     "q": query,
                     "page": page,
                     "per_page": per_page,
@@ -442,30 +561,43 @@ class GitHubClient(ClientBase):
 
             # Use the absolute URL from 'next' link if available, otherwise use the base endpoint
             current_url = next_url if next_url else self._construct_url(endpoint)
-            request_endpoint = next_url if next_url else endpoint # Use for logging clarity
+            request_endpoint = (
+                next_url if next_url else endpoint
+            )  # Use for logging clarity
 
-            logger.debug(f"Fetching search results page {page} for query '{query}' (URL: {current_url})")
+            logger.debug(
+                f"Fetching search results page {page} for query '{query}' (URL: {current_url})"
+            )
 
             try:
                 response = self._request(
                     "GET",
-                    request_endpoint, # Pass relative endpoint or absolute URL
-                    params=params,    # Pass params only if not using next_url
-                    headers=self.auth_headers
+                    request_endpoint,  # Pass relative endpoint or absolute URL
+                    params=params,  # Pass params only if not using next_url
+                    headers=self.auth_headers,
                 )
 
                 # Handle specific error codes for search API
                 if response.status_code == 403:
                     # Could be rate limits, token issues, or abuse detection
-                    logger.error(f"Access forbidden (403) during repository search (page {page}, query='{query}'). Check token, rate limits, or potential abuse flags.")
-                    raise ApiClientError(f"Access forbidden during repository search (page {page}).", status_code=403)
+                    logger.error(
+                        f"Access forbidden (403) during repository search (page {page}, query='{query}'). Check token, rate limits, or potential abuse flags."
+                    )
+                    raise ApiClientError(
+                        f"Access forbidden during repository search (page {page}).",
+                        status_code=403,
+                    )
                 elif response.status_code == 422:
                     # Often indicates an invalid or unprocessable search query
-                    logger.error(f"Unprocessable search query '{query}' (page {page}). Status: 422. Response: {response.text[:200]}")
-                    return None # Cannot proceed with an invalid query
+                    logger.error(
+                        f"Unprocessable search query '{query}' (page {page}). Status: 422. Response: {response.text[:200]}"
+                    )
+                    return None  # Cannot proceed with an invalid query
                 elif not response.ok:
                     # Handle other unexpected non-ok statuses
-                    logger.error(f"GitHub API error searching repositories (page {page}, query='{query}'). Status: {response.status_code}, Response: {response.text[:200]}")
+                    logger.error(
+                        f"GitHub API error searching repositories (page {page}, query='{query}'). Status: {response.status_code}, Response: {response.text[:200]}"
+                    )
                     # Fail the search for now, could potentially return partial results
                     return None
 
@@ -475,58 +607,81 @@ class GitHubClient(ClientBase):
 
                     # Validate the structure of the response
                     if not isinstance(page_items, list):
-                        logger.error(f"Unexpected 'items' format in search response (page {page}, expected list, got {type(page_items)}).")
-                        return None # Cannot process invalid format
+                        logger.error(
+                            f"Unexpected 'items' format in search response (page {page}, expected list, got {type(page_items)})."
+                        )
+                        return None  # Cannot process invalid format
 
                     # Get the total count from the first page's response only
                     if page == 1:
                         total_count = data.get("total_count", 0)
                         incomplete_results = data.get("incomplete_results", False)
-                        logger.info(f"GitHub reported total_count: {total_count} for query '{query}'. Incomplete results: {incomplete_results}")
+                        logger.info(
+                            f"GitHub reported total_count: {total_count} for query '{query}'. Incomplete results: {incomplete_results}"
+                        )
                         # Check if total_count exceeds GitHub's accessible limit
                         if total_count > github_max_results:
-                             logger.warning(f"Query '{query}' has {total_count} results, but GitHub API only allows access to the first {github_max_results}.")
+                            logger.warning(
+                                f"Query '{query}' has {total_count} results, but GitHub API only allows access to the first {github_max_results}."
+                            )
 
                     # Add items from the current page, respecting the effective_max_results limit
                     num_needed = effective_max_results - len(all_items)
                     items_to_add = page_items[:num_needed]
                     all_items.extend(items_to_add)
 
-                    logger.debug(f"Fetched {len(page_items)} items on page {page}. Added {len(items_to_add)}. Total items collected: {len(all_items)}")
+                    logger.debug(
+                        f"Fetched {len(page_items)} items on page {page}. Added {len(items_to_add)}. Total items collected: {len(all_items)}"
+                    )
 
                     # Check if we've reached the limit
                     if len(all_items) >= effective_max_results:
-                         logger.info(f"Reached effective result limit ({effective_max_results} items). Stopping pagination.")
-                         break # Exit loop
+                        logger.info(
+                            f"Reached effective result limit ({effective_max_results} items). Stopping pagination."
+                        )
+                        break  # Exit loop
 
                     # --- Pagination Logic ---
                     links = self._parse_link_header(response.headers)
                     next_url = links.get("next")
 
                     if not next_url:
-                        logger.debug("No 'next' link found in header. Reached end of accessible results.")
-                        break # Exit loop if no more pages are available
+                        logger.debug(
+                            "No 'next' link found in header. Reached end of accessible results."
+                        )
+                        break  # Exit loop if no more pages are available
 
-                    page += 1 # Increment page number for the next iteration
+                    page += 1  # Increment page number for the next iteration
 
                 except requests.exceptions.JSONDecodeError as json_err:
-                     logger.error(f"Failed to decode JSON search response (page {page}): {json_err}", exc_info=True)
-                     return None # Cannot proceed if JSON is invalid
+                    logger.error(
+                        f"Failed to decode JSON search response (page {page}): {json_err}",
+                        exc_info=True,
+                    )
+                    return None  # Cannot proceed if JSON is invalid
 
             except ApiClientError as api_err:
                 # Propagate client-level errors (connection, timeout, 403, etc.)
-                logger.error(f"API client error during search pagination (page {page}): {api_err}")
+                logger.error(
+                    f"API client error during search pagination (page {page}): {api_err}"
+                )
                 raise
-            except Exception as e:
+            except Exception:
                 # Catch any other unexpected errors
-                logger.exception(f"Unexpected error during search pagination (page {page})")
-                raise # Propagate unexpected errors
+                logger.exception(
+                    f"Unexpected error during search pagination (page {page})"
+                )
+                raise  # Propagate unexpected errors
 
-        logger.info(f"Finished repository search for '{query}'. Fetched {len(all_items)} items across {page if not next_url else page-1} pages. GitHub total count: {total_count}.")
+        logger.info(
+            f"Finished repository search for '{query}'. Fetched {len(all_items)} items across {page if not next_url else page - 1} pages. GitHub total count: {total_count}."
+        )
         # Return the aggregated list and the total count reported by GitHub
         return all_items, total_count
 
-    def get_pull_requests(self, owner: str, repo: str, state: str = 'all', per_page: int = 100) -> List[Dict[str, Any]]:
+    def get_pull_requests(
+        self, owner: str, repo: str, state: str = "all", per_page: int = 100
+    ) -> List[Dict[str, Any]]:
         """
         Fetches pull requests for a repository, handling pagination.
 
@@ -546,7 +701,12 @@ class GitHubClient(ClientBase):
         if not owner or not repo:
             raise ValueError("Owner and repository name cannot be empty.")
         endpoint = f"/repos/{owner}/{repo}/pulls"
-        params = {"state": state, "per_page": per_page, "sort": "created", "direction": "desc"}
+        params = {
+            "state": state,
+            "per_page": per_page,
+            "sort": "created",
+            "direction": "desc",
+        }
         logger.info(f"Fetching pull requests for {owner}/{repo} (state={state})...")
         try:
             # Use the generic pagination helper
@@ -555,9 +715,11 @@ class GitHubClient(ClientBase):
         except ApiClientError as e:
             # Log the error specific to this operation before re-raising
             logger.error(f"Failed to fetch pull requests for {owner}/{repo}: {e}")
-            raise e # Re-raise the error for upstream handling
+            raise e  # Re-raise the error for upstream handling
 
-    def get_issues(self, owner: str, repo: str, state: str = 'all', per_page: int = 100) -> List[Dict[str, Any]]:
+    def get_issues(
+        self, owner: str, repo: str, state: str = "all", per_page: int = 100
+    ) -> List[Dict[str, Any]]:
         """
         Fetches issues for a repository, handling pagination.
         Note: This fetches both issues and pull requests, as GitHub treats
@@ -580,7 +742,12 @@ class GitHubClient(ClientBase):
         if not owner or not repo:
             raise ValueError("Owner and repository name cannot be empty.")
         endpoint = f"/repos/{owner}/{repo}/issues"
-        params = {"state": state, "per_page": per_page, "sort": "created", "direction": "desc"}
+        params = {
+            "state": state,
+            "per_page": per_page,
+            "sort": "created",
+            "direction": "desc",
+        }
         logger.info(f"Fetching issues (and PRs) for {owner}/{repo} (state={state})...")
         try:
             # Use the generic pagination helper
@@ -588,11 +755,17 @@ class GitHubClient(ClientBase):
             return all_issues
         except ApiClientError as e:
             logger.error(f"Failed to fetch issues for {owner}/{repo}: {e}")
-            raise e # Re-raise the error
+            raise e  # Re-raise the error
 
     # --- Methods for Fetching Comments ---
 
-    def get_issue_comments(self, owner: str, repo: str, issue_number: Optional[int] = None, per_page: int = 100) -> List[Dict[str, Any]]:
+    def get_issue_comments(
+        self,
+        owner: str,
+        repo: str,
+        issue_number: Optional[int] = None,
+        per_page: int = 100,
+    ) -> List[Dict[str, Any]]:
         """
         Fetches comments on issues within a repository, handling pagination.
 
@@ -619,7 +792,9 @@ class GitHubClient(ClientBase):
         if issue_number is not None:
             # Endpoint for comments on a specific issue
             endpoint = f"/repos/{owner}/{repo}/issues/{issue_number}/comments"
-            log_msg = f"Fetching comments for issue #{issue_number} in {owner}/{repo}..."
+            log_msg = (
+                f"Fetching comments for issue #{issue_number} in {owner}/{repo}..."
+            )
         else:
             # Endpoint for comments across all issues in the repo
             endpoint = f"/repos/{owner}/{repo}/issues/comments"
@@ -634,10 +809,18 @@ class GitHubClient(ClientBase):
             return all_comments
         except ApiClientError as e:
             issue_id = f"issue #{issue_number}" if issue_number else "all issues"
-            logger.error(f"Failed to fetch issue comments for {owner}/{repo} ({issue_id}): {e}")
+            logger.error(
+                f"Failed to fetch issue comments for {owner}/{repo} ({issue_id}): {e}"
+            )
             raise e
 
-    def get_pr_review_comments(self, owner: str, repo: str, pull_number: Optional[int] = None, per_page: int = 100) -> List[Dict[str, Any]]:
+    def get_pr_review_comments(
+        self,
+        owner: str,
+        repo: str,
+        pull_number: Optional[int] = None,
+        per_page: int = 100,
+    ) -> List[Dict[str, Any]]:
         """
         Fetches review comments on pull requests within a repository, handling pagination.
 
@@ -666,7 +849,9 @@ class GitHubClient(ClientBase):
         if pull_number is not None:
             # Endpoint for review comments on a specific PR
             endpoint = f"/repos/{owner}/{repo}/pulls/{pull_number}/comments"
-            log_msg = f"Fetching review comments for PR #{pull_number} in {owner}/{repo}..."
+            log_msg = (
+                f"Fetching review comments for PR #{pull_number} in {owner}/{repo}..."
+            )
         else:
             # Endpoint for review comments across all PRs in the repo
             endpoint = f"/repos/{owner}/{repo}/pulls/comments"
@@ -681,5 +866,7 @@ class GitHubClient(ClientBase):
             return all_comments
         except ApiClientError as e:
             pr_id = f"PR #{pull_number}" if pull_number else "all PRs"
-            logger.error(f"Failed to fetch PR review comments for {owner}/{repo} ({pr_id}): {e}")
+            logger.error(
+                f"Failed to fetch PR review comments for {owner}/{repo} ({pr_id}): {e}"
+            )
             raise e

@@ -49,7 +49,7 @@ The system uses a FastAPI web framework for its API, PostgreSQL as the database,
  Before you begin, ensure you have the following installed on your system:
 
  1.  **Python:** Version 3.10 or higher is recommended. [Download Python](https://www.python.org/downloads/)
- 2.  **pip:** Python's package installer (usually comes with Python).
+ 2.  **uv:** Python's package installer, follow [this instrauction](https://docs.astral.sh/uv/#installation) to install.
  3.  **Git:** For cloning the repository. [Download Git](https://git-scm.com/downloads)
  4.  **PostgreSQL:** A running PostgreSQL database server (version 12+ recommended). You'll need the ability to create a database and a user. [Download PostgreSQL](https://www.postgresql.org/download/)
  5.  **Redis:** A running Redis server. Celery uses this to manage background tasks. [Download Redis](https://redis.io/docs/getting-started/installation/) or use Docker.
@@ -66,31 +66,19 @@ Follow these steps carefully to set up the MOSS backend application:
     cd moss/
     ```
 
-2.  **Create a Virtual Environment:**
-    It's highly recommended to use a virtual environment to isolate project dependencies.
+1.  **Install Dependencies:**
+    Install all the required Python packages:
     ```bash
-    python -m venv venv
+    uv sync
     ```
-    *(This creates a `venv` directory in your project folder.)*
+    `uv` automatically make `.venv` directory in root project and install all the dependenies.
 
-3.  **Activate the Virtual Environment:**
-    *   **On macOS/Linux:**
-        ```bash
-        source venv/bin/activate
-        ```
-    *   **On Windows:**
-        ```bash
-        .\venv\Scripts\activate
-        ```
-    *(Your terminal prompt should change to indicate the active environment, e.g., `(venv)`).*
-
-4.  **Install Dependencies:**
-    Install all the required Python packages listed in `requirements.txt`:
+    for **Contributing** please use it with `--dev` to install devdependency:
     ```bash
-    pip install -r requirements.txt
+    uv sync --dev
     ```
 
-5.  **Configure Environment Variables (`.env` file):**
+1.  **Configure Environment Variables (`.env` file):**
     *   Copy the example environment file:
         ```bash
         cp .env.example .env
@@ -113,7 +101,7 @@ Follow these steps carefully to set up the MOSS backend application:
         *   `CELERY_RESULT_BACKEND_URL`: URL for your Redis server (used by Celery to store task results).
             *   Default: `redis://localhost:6379/1` (using database 1, different from the broker). Adjust if needed.
 
-6.  **Set Up PostgreSQL Database:**
+1.  **Set Up PostgreSQL Database:**
     *   Connect to your PostgreSQL server (e.g., using `psql` or a GUI tool).
     *   Create the database (if it doesn't exist). **Use the name you specified in `.env`**.
         ```sql
@@ -128,7 +116,7 @@ Follow these steps carefully to set up the MOSS backend application:
         ```
     *   *(**Note:** These are example commands. Adjust them based on your PostgreSQL setup and security practices.)*
 
-7.  **Run Database Migrations:**
+1.  **Run Database Migrations:**
     This step creates all the necessary tables in your database based on the application's models. We use Alembic, managed via a script.
     ```bash
     python scripts/setup_db.py
@@ -142,7 +130,7 @@ The application consists of two main parts that need to run concurrently: the **
 1.  **Start the API Server (FastAPI with Uvicorn):**
     This makes the REST API available.
     ```bash
-    uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+    uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
     ```
     *   `backend.main:app`: Tells Uvicorn where to find the FastAPI app instance.
     *   `--reload`: Automatically restarts the server when code changes (useful for development). Remove this flag in production.
@@ -151,7 +139,7 @@ The application consists of two main parts that need to run concurrently: the **
     *   You should see output indicating the server is running, often including `Application startup complete.`
     *   You can access the API documentation at `http://localhost:8000/docs` in your browser.
 
-2.  **Start the Celery Workers:**
+1.  **Start the Celery Workers:**
     These processes handle background tasks like keyword discovery and DOI processing. **Make sure Redis is running before starting the workers.**
     ```bash
     celery -A backend.celery_app worker -l info -P eventlet -c 4
@@ -173,14 +161,14 @@ The frontend application is typically developed and run separately from the back
     cd frontend/
     ```
 
-2.  **Install Frontend Dependencies:**
+1.  **Install Frontend Dependencies:**
     Install the necessary Node.js packages defined in `package.json`:
     ```bash
     npm install
     ```
     *(This command downloads all the libraries the frontend needs. It might take a few minutes the first time.)*
 
-3.  **Configure Frontend Environment (Optional):**
+1.  **Configure Frontend Environment (Optional):**
     *   The frontend might require its own environment variables (e.g., the URL of the backend API). Look for a file named `.env.development.local` or similar example files in the `frontend/` directory.
     *   If an example file exists (like `.env.development.local.example`), copy it:
         ```bash
@@ -188,14 +176,14 @@ The frontend application is typically developed and run separately from the back
         ```
     *   Edit the `.env.development.local` file and adjust any necessary settings, such as `VITE_API_BASE_URL` if the backend isn't running on `http://localhost:8000`. By default, it should usually point to where the backend API server is running.
 
-4.  **Start the Frontend Development Server:**
+1.  **Start the Frontend Development Server:**
     Run the development server script:
     ```bash
     npm run dev
     ```
     *(This command typically starts a local web server for the frontend with features like automatic reloading when you change frontend code.)*
 
-5.  **Access the Frontend:**
+1.  **Access the Frontend:**
     *   Once the server starts, it will usually print a URL in the terminal. Open this URL in your web browser.
     *   Common URLs are `http://localhost:5173` (Vite default) or `http://localhost:3000` (Create React App default). Check the terminal output for the correct one.
 
@@ -204,8 +192,8 @@ The frontend application is typically developed and run separately from the back
 To run the full MOSS application locally for development, you will typically need **three separate terminals** running concurrently (ensure the Python virtual environment is activated in the backend terminals):
 
 1.  **Terminal 1:** Backend API Server (`uvicorn backend.main:app ...`)
-2.  **Terminal 2:** Celery Worker (`celery -A backend.celery_app worker ...`)
-3.  **Terminal 3:** Frontend Development Server (`cd frontend && npm run dev`)
+1.  **Terminal 2:** Celery Worker (`celery -A backend.celery_app worker ...`)
+1.  **Terminal 3:** Frontend Development Server (`cd frontend && npm run dev`)
 
 *(Remember to have PostgreSQL and Redis running in the background as well).*
 ## Running Database Migrations Manually
@@ -218,7 +206,7 @@ If you make changes to the database models (`backend/data/models/`) later, you w
     ```
     *(Review the generated script in `backend/data/migrations/versions/`)*
 
-2.  **Apply the migration:**
+1.  **Apply the migration:**
     ```bash
     python scripts/setup_db.py
     ```

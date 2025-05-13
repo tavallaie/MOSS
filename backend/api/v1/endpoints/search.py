@@ -11,14 +11,18 @@ from typing import List
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
+
 # Import necessary SQLAlchemy functions for searching and ordering
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 
 # Internal dependencies for database access, models, and response schemas
 from backend.api.deps import get_db_session
 from backend.data.models import Repository, Work, Person, Institution
 from backend.schemas.responses import (
-    RepositorySummary, WorkSummary, PersonSummary, InstitutionSummary # Use summary schemas for search results
+    RepositorySummary,
+    WorkSummary,
+    PersonSummary,
+    InstitutionSummary,  # Use summary schemas for search results
 )
 
 # Logger setup for this module
@@ -30,19 +34,32 @@ router = APIRouter()
 # Default pagination parameters for search results
 DEFAULT_SEARCH_SKIP = 0
 DEFAULT_SEARCH_LIMIT = 100
-MAX_SEARCH_LIMIT = 200 # Define a maximum limit for safety/performance
+MAX_SEARCH_LIMIT = 200  # Define a maximum limit for safety/performance
 
 
 @router.get(
     "/repositories",
-    response_model=List[RepositorySummary], # Return a list of summaries
-    summary="Search Repositories"
+    response_model=List[RepositorySummary],  # Return a list of summaries
+    summary="Search Repositories",
 )
 def search_repositories(
-    q: str = Query(..., min_length=1, description="Search query string used to match repository name or description."),
-    skip: int = Query(DEFAULT_SEARCH_SKIP, ge=0, description="Number of results to skip (for pagination)."),
-    limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT, description="Maximum number of results to return."),
-    db: Session = Depends(get_db_session) # Database session dependency
+    q: str = Query(
+        ...,
+        min_length=1,
+        description="Search query string used to match repository name or description.",
+    ),
+    skip: int = Query(
+        DEFAULT_SEARCH_SKIP,
+        ge=0,
+        description="Number of results to skip (for pagination).",
+    ),
+    limit: int = Query(
+        DEFAULT_SEARCH_LIMIT,
+        ge=1,
+        le=MAX_SEARCH_LIMIT,
+        description="Maximum number of results to return.",
+    ),
+    db: Session = Depends(get_db_session),  # Database session dependency
 ):
     """
     Searches for repositories where the query string `q` appears in the
@@ -62,7 +79,9 @@ def search_repositories(
     Raises:
         HTTPException: 500 Internal Server Error if the search query fails.
     """
-    logger.info(f"Searching repositories with query: '{q}', skip: {skip}, limit: {limit}")
+    logger.info(
+        f"Searching repositories with query: '{q}', skip: {skip}, limit: {limit}"
+    )
     # Prepare the search term for use with ILIKE (case-insensitive LIKE)
     search_term = f"%{q}%"
 
@@ -73,39 +92,54 @@ def search_repositories(
             .filter(
                 # Use 'or_' to match the search term in either field
                 or_(
-                    Repository.full_name.ilike(search_term), # Case-insensitive match on full name
-                    Repository.description.ilike(search_term) # Case-insensitive match on description
+                    Repository.full_name.ilike(
+                        search_term
+                    ),  # Case-insensitive match on full name
+                    Repository.description.ilike(
+                        search_term
+                    ),  # Case-insensitive match on description
                 )
             )
             # Order results: repositories with more stars appear first.
             # `nullslast()` ensures repositories without star counts appear at the end.
             .order_by(Repository.stargazers_count.desc().nullslast())
-            .offset(skip) # Apply pagination offset
-            .limit(limit) # Apply pagination limit
+            .offset(skip)  # Apply pagination offset
+            .limit(limit)  # Apply pagination limit
         )
         # Execute the query and get results
         results = query.all()
         # FastAPI handles mapping the results to the response model (List[RepositorySummary])
         return results
-    except Exception as e:
+    except Exception:
         # Log unexpected errors during the search
         logger.exception(f"Error during repository search for query '{q}'")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while searching for repositories."
+            detail="An error occurred while searching for repositories.",
         )
 
 
 @router.get(
     "/works",
-    response_model=List[WorkSummary], # Return a list of summaries
-    summary="Search Works"
+    response_model=List[WorkSummary],  # Return a list of summaries
+    summary="Search Works",
 )
 def search_works(
-    q: str = Query(..., min_length=1, description="Search query string used to match work title or DOI."),
-    skip: int = Query(DEFAULT_SEARCH_SKIP, ge=0, description="Number of results to skip."),
-    limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT, description="Maximum number of results to return."),
-    db: Session = Depends(get_db_session) # Database session dependency
+    q: str = Query(
+        ...,
+        min_length=1,
+        description="Search query string used to match work title or DOI.",
+    ),
+    skip: int = Query(
+        DEFAULT_SEARCH_SKIP, ge=0, description="Number of results to skip."
+    ),
+    limit: int = Query(
+        DEFAULT_SEARCH_LIMIT,
+        ge=1,
+        le=MAX_SEARCH_LIMIT,
+        description="Maximum number of results to return.",
+    ),
+    db: Session = Depends(get_db_session),  # Database session dependency
 ):
     """
     Searches for scholarly works where the query string `q` appears in the
@@ -126,7 +160,7 @@ def search_works(
         HTTPException: 500 Internal Server Error if the search query fails.
     """
     logger.info(f"Searching works with query: '{q}', skip: {skip}, limit: {limit}")
-    search_term = f"%{q}%" # Prepare term for ILIKE
+    search_term = f"%{q}%"  # Prepare term for ILIKE
 
     try:
         query = (
@@ -134,8 +168,8 @@ def search_works(
             .filter(
                 # Match the search term in either title or DOI
                 or_(
-                    Work.title.ilike(search_term), # Case-insensitive match on title
-                    Work.doi.ilike(search_term)    # Case-insensitive match on DOI
+                    Work.title.ilike(search_term),  # Case-insensitive match on title
+                    Work.doi.ilike(search_term),  # Case-insensitive match on DOI
                 )
             )
             # Order results: more cited works appear first.
@@ -145,24 +179,35 @@ def search_works(
         )
         results = query.all()
         return results
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error during work search for query '{q}'")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while searching for works."
+            detail="An error occurred while searching for works.",
         )
 
 
 @router.get(
     "/people",
-    response_model=List[PersonSummary], # Return a list of summaries
-    summary="Search People"
+    response_model=List[PersonSummary],  # Return a list of summaries
+    summary="Search People",
 )
 def search_people(
-    q: str = Query(..., min_length=1, description="Search query string used to match person display name or ORCID."),
-    skip: int = Query(DEFAULT_SEARCH_SKIP, ge=0, description="Number of results to skip."),
-    limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT, description="Maximum number of results to return."),
-    db: Session = Depends(get_db_session) # Database session dependency
+    q: str = Query(
+        ...,
+        min_length=1,
+        description="Search query string used to match person display name or ORCID.",
+    ),
+    skip: int = Query(
+        DEFAULT_SEARCH_SKIP, ge=0, description="Number of results to skip."
+    ),
+    limit: int = Query(
+        DEFAULT_SEARCH_LIMIT,
+        ge=1,
+        le=MAX_SEARCH_LIMIT,
+        description="Maximum number of results to return.",
+    ),
+    db: Session = Depends(get_db_session),  # Database session dependency
 ):
     """
     Searches for people (authors/researchers) where the query string `q`
@@ -184,7 +229,7 @@ def search_people(
         HTTPException: 500 Internal Server Error if the search query fails.
     """
     logger.info(f"Searching people with query: '{q}', skip: {skip}, limit: {limit}")
-    search_term = f"%{q}%" # Prepare term for ILIKE
+    search_term = f"%{q}%"  # Prepare term for ILIKE
 
     try:
         query = (
@@ -192,8 +237,10 @@ def search_people(
             .filter(
                 # Match the search term in either display name or ORCID
                 or_(
-                    Person.display_name.ilike(search_term), # Case-insensitive match on display name
-                    Person.orcid.ilike(search_term)         # Case-insensitive match on ORCID
+                    Person.display_name.ilike(
+                        search_term
+                    ),  # Case-insensitive match on display name
+                    Person.orcid.ilike(search_term),  # Case-insensitive match on ORCID
                     # Future enhancement: Add search on Person.display_name_alternatives (JSONB array)
                     # This would require database-specific JSON functions, e.g., for PostgreSQL:
                     # func.lower(Person.display_name_alternatives::text).contains(q.lower())
@@ -206,24 +253,36 @@ def search_people(
         )
         results = query.all()
         return results
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error during people search for query '{q}'")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while searching for people."
+            detail="An error occurred while searching for people.",
         )
+
 
 @router.get(
     "/institutions",
-    response_model=List[InstitutionSummary], # Return a list of summaries
-    summary="Search Institutions"
+    response_model=List[InstitutionSummary],  # Return a list of summaries
+    summary="Search Institutions",
 )
 def search_institutions(
-    q: str = Query(..., min_length=1, description="Search query string used to match institution display name or ROR ID."),
+    q: str = Query(
+        ...,
+        min_length=1,
+        description="Search query string used to match institution display name or ROR ID.",
+    ),
     # Corrected default skip value for consistency
-    skip: int = Query(DEFAULT_SEARCH_SKIP, ge=0, description="Number of results to skip."),
-    limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT, description="Maximum number of results to return."),
-    db: Session = Depends(get_db_session) # Database session dependency
+    skip: int = Query(
+        DEFAULT_SEARCH_SKIP, ge=0, description="Number of results to skip."
+    ),
+    limit: int = Query(
+        DEFAULT_SEARCH_LIMIT,
+        ge=1,
+        le=MAX_SEARCH_LIMIT,
+        description="Maximum number of results to return.",
+    ),
+    db: Session = Depends(get_db_session),  # Database session dependency
 ):
     """
     Searches for institutions where the query string `q` appears in the
@@ -243,8 +302,10 @@ def search_institutions(
     Raises:
         HTTPException: 500 Internal Server Error if the search query fails.
     """
-    logger.info(f"Searching institutions with query: '{q}', skip: {skip}, limit: {limit}")
-    search_term = f"%{q}%" # Prepare term for ILIKE
+    logger.info(
+        f"Searching institutions with query: '{q}', skip: {skip}, limit: {limit}"
+    )
+    search_term = f"%{q}%"  # Prepare term for ILIKE
 
     try:
         query = (
@@ -252,8 +313,12 @@ def search_institutions(
             .filter(
                 # Match the search term in either display name or ROR ID
                 or_(
-                    Institution.display_name.ilike(search_term), # Case-insensitive match on display name
-                    Institution.ror.ilike(search_term)          # Case-insensitive match on ROR ID
+                    Institution.display_name.ilike(
+                        search_term
+                    ),  # Case-insensitive match on display name
+                    Institution.ror.ilike(
+                        search_term
+                    ),  # Case-insensitive match on ROR ID
                 )
             )
             # Order results alphabetically by name
@@ -263,9 +328,9 @@ def search_institutions(
         )
         results = query.all()
         return results
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error during institution search for query '{q}'")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while searching for institutions."
+            detail="An error occurred while searching for institutions.",
         )

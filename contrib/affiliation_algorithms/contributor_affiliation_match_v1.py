@@ -11,7 +11,7 @@ to affiliations discovered through this method.
 import sys
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any
 
 # --- Path Setup ---
 # Determine the project root directory based on the script's location
@@ -27,29 +27,20 @@ from sqlalchemy.orm import sessionmaker, Session
 
 # Import necessary MOSS models for database interaction, covering repositories,
 # institutions, authors, works, affiliations, and DOI references.
-from backend.data.models import (
-    Repository,
-    Institution,
-    Affiliation,
-    Authorship,
-    Person,
-    Work,
-    DOIReference
-)
+from backend.data.models import Affiliation, Authorship, DOIReference
 
 # --- Logging Setup ---
 # Configure basic logging to provide visibility into the script's execution.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)-5.5s] [contributor_affil_match_v1] - %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)]
+    handlers=[logging.StreamHandler(sys.stderr)],
 )
 logger = logging.getLogger(__name__)
 
 
 def calculate_affiliations(
-    institution_id: int,
-    db_conn_str: str
+    institution_id: int, db_conn_str: str
 ) -> List[Dict[str, Any]]:
     """
     Identifies potential repository-institution affiliations.
@@ -85,7 +76,9 @@ def calculate_affiliations(
                       }
         Returns an empty list if no affiliations are found or if an error occurs.
     """
-    logger.info(f"Starting contributor_affiliation_match_v1 for Institution ID {institution_id}")
+    logger.info(
+        f"Starting contributor_affiliation_match_v1 for Institution ID {institution_id}"
+    )
 
     engine = None
     db: Session | None = None
@@ -104,57 +97,71 @@ def calculate_affiliations(
 
         # Step 1: Find all unique person IDs linked to the target institution
         # via the Affiliation table.
-        person_ids_stmt = (
-            select(distinct(Affiliation.authorship_person_id))
-            .where(Affiliation.institution_id == institution_id)
+        person_ids_stmt = select(distinct(Affiliation.authorship_person_id)).where(
+            Affiliation.institution_id == institution_id
         )
         affiliated_person_ids = db.execute(person_ids_stmt).scalars().all()
 
         if not affiliated_person_ids:
             # If no affiliated persons found, no further links can be made.
-            logger.info(f"No persons found affiliated with Institution ID {institution_id}.")
+            logger.info(
+                f"No persons found affiliated with Institution ID {institution_id}."
+            )
             return []
 
-        logger.info(f"Found {len(affiliated_person_ids)} persons affiliated with Inst ID {institution_id}.")
+        logger.info(
+            f"Found {len(affiliated_person_ids)} persons affiliated with Inst ID {institution_id}."
+        )
 
         # Step 2: Find all unique work IDs associated with these affiliated persons
         # via the Authorship table.
-        work_ids_stmt = (
-            select(distinct(Authorship.work_id))
-            .where(Authorship.person_id.in_(affiliated_person_ids))
+        work_ids_stmt = select(distinct(Authorship.work_id)).where(
+            Authorship.person_id.in_(affiliated_person_ids)
         )
         authored_work_ids = db.execute(work_ids_stmt).scalars().all()
 
         if not authored_work_ids:
             # If these authors have no associated works in the DB, stop.
-            logger.info(f"No works found authored by affiliated persons.")
+            logger.info("No works found authored by affiliated persons.")
             return []
 
-        logger.info(f"Found {len(authored_work_ids)} works authored by affiliated persons.")
+        logger.info(
+            f"Found {len(authored_work_ids)} works authored by affiliated persons."
+        )
 
         # Step 3: Find repository links (via DOIReference) to these authored works.
         # Select distinct repository IDs, along with the linking work ID and DOI for evidence.
         repo_link_stmt = (
-             select(distinct(DOIReference.repository_id), DOIReference.work_id, DOIReference.doi)
-            .where(DOIReference.work_id.in_(authored_work_ids)) # Link to the works found in Step 2
-            .where(DOIReference.repository_id.isnot(None)) # Ensure the reference links to a known repository
+            select(
+                distinct(DOIReference.repository_id),
+                DOIReference.work_id,
+                DOIReference.doi,
+            )
+            .where(
+                DOIReference.work_id.in_(authored_work_ids)
+            )  # Link to the works found in Step 2
+            .where(
+                DOIReference.repository_id.isnot(None)
+            )  # Ensure the reference links to a known repository
         )
         # Fetch results as dictionary-like rows for easy access by column name.
         repo_links = db.execute(repo_link_stmt).mappings().all()
 
-        logger.info(f"Found {len(repo_links)} DOI references linking affiliated works to repositories.")
+        logger.info(
+            f"Found {len(repo_links)} DOI references linking affiliated works to repositories."
+        )
 
         # Step 4: Aggregate the findings by repository ID.
         for link in repo_links:
-            repo_id = link['repository_id']
-            work_id = link['work_id']
-            doi = link['doi']
+            repo_id = link["repository_id"]
+            work_id = link["work_id"]
+            doi = link["doi"]
 
             # Structure the evidence for this specific link (work/DOI).
             evidence_item = {
-                "type": "affiliated_author_work", # Type of evidence detail
+                "type": "affiliated_author_work",  # Type of evidence detail
                 "work_id": work_id,
-                "doi": doi
+                "doi": doi,
                 # Note: Adding person_id here would require another join or lookup,
                 # omitted for simplicity in this version.
             }
@@ -162,8 +169,8 @@ def calculate_affiliations(
             if repo_id not in results_map:
                 # First time encountering this repository, initialize its entry.
                 results_map[repo_id] = {
-                    "score": CONFIDENCE_SCORE, # Assign the predefined score
-                    "evidence_list": [evidence_item] # Start the list of evidence
+                    "score": CONFIDENCE_SCORE,  # Assign the predefined score
+                    "evidence_list": [evidence_item],  # Start the list of evidence
                 }
             else:
                 # Repository already seen, just add the new piece of evidence.
@@ -172,15 +179,22 @@ def calculate_affiliations(
                 # Limit the number of evidence examples stored per repository for brevity.
                 max_evidence = 5
                 if len(results_map[repo_id]["evidence_list"]) > max_evidence:
-                     # Keep the first few examples and add a truncation indicator.
-                     results_map[repo_id]["evidence_list"] = results_map[repo_id]["evidence_list"][:max_evidence] + \
-                         [{"type": "truncated", "count": len(results_map[repo_id]["evidence_list"])}]
-
+                    # Keep the first few examples and add a truncation indicator.
+                    results_map[repo_id]["evidence_list"] = results_map[repo_id][
+                        "evidence_list"
+                    ][:max_evidence] + [
+                        {
+                            "type": "truncated",
+                            "count": len(results_map[repo_id]["evidence_list"]),
+                        }
+                    ]
 
     except Exception as e:
         # Catch any unexpected errors during execution.
-        logger.exception(f"Error during contributor_affiliation_match_v1 execution: {e}")
-        return [] # Return empty list on error
+        logger.exception(
+            f"Error during contributor_affiliation_match_v1 execution: {e}"
+        )
+        return []  # Return empty list on error
     finally:
         # Ensure database resources are released.
         if db:
@@ -193,17 +207,22 @@ def calculate_affiliations(
     # Step 5: Format the aggregated results from the map into the final list structure.
     final_results = []
     for repo_id, data in results_map.items():
-        final_results.append({
-            "repository_id": repo_id,
-            "confidence_score": data["score"],
-            "evidence": { # Structure the evidence clearly
-                "signal_type": "affiliated_author_work_reference", # Overall type of signal
-                "details": data["evidence_list"] # List of specific work/DOI links
-                }
-        })
+        final_results.append(
+            {
+                "repository_id": repo_id,
+                "confidence_score": data["score"],
+                "evidence": {  # Structure the evidence clearly
+                    "signal_type": "affiliated_author_work_reference",  # Overall type of signal
+                    "details": data["evidence_list"],  # List of specific work/DOI links
+                },
+            }
+        )
 
-    logger.info(f"Contributor_affiliation_match_v1 finished. Found {len(final_results)} potential repository affiliations for Inst {institution_id}.")
+    logger.info(
+        f"Contributor_affiliation_match_v1 finished. Found {len(final_results)} potential repository affiliations for Inst {institution_id}."
+    )
     return final_results
+
 
 # --- Example Test Call Block ---
 # This block is typically commented out but can be used for direct script

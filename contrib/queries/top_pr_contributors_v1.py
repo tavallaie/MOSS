@@ -1,10 +1,9 @@
 # --- CORRECTED FILE: contrib/queries/top_pr_contributors_v1.py ---
 
 import sys
-import os
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 # --- Path Setup ---
 # Ensures the script can find backend modules when run by the executor
@@ -23,15 +22,13 @@ from backend.data.models import Contributor, PullRequest
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)-5.5s] [top_pr_contrib_v1] - %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)]
+    handlers=[logging.StreamHandler(sys.stderr)],
 )
 logger = logging.getLogger(__name__)
 
 
 def run_analysis(
-    db_conn_str: str,
-    repository_id: int,
-    limit: int = 10
+    db_conn_str: str, repository_id: int, limit: int = 10
 ) -> Dict[str, Any]:
     """
     Identifies the top contributors to a repository based on merged Pull Requests.
@@ -48,15 +45,17 @@ def run_analysis(
                          ordered by count descending.
                          If error, data contains error details.
     """
-    logger.info(f"Starting top_pr_contributors_v1 analysis for repository_id={repository_id}, limit={limit}")
+    logger.info(
+        f"Starting top_pr_contributors_v1 analysis for repository_id={repository_id}, limit={limit}"
+    )
 
     engine = None
     db: Session | None = None
     results: List[Dict[str, Any]] = []
 
     if limit <= 0:
-         logger.warning("Limit must be a positive integer. Setting limit to 10.")
-         limit = 10
+        logger.warning("Limit must be a positive integer. Setting limit to 10.")
+        limit = 10
 
     try:
         engine = create_engine(db_conn_str)
@@ -67,13 +66,13 @@ def run_analysis(
         aggregation_stmt = (
             select(
                 Contributor.login.label("contributor_login"),
-                func.count(PullRequest.id).label("merged_pr_count")
+                func.count(PullRequest.id).label("merged_pr_count"),
             )
             .select_from(Contributor)
             .join(PullRequest, Contributor.id == PullRequest.user_id)
             .where(PullRequest.repository_id == repository_id)
             # --- FIX: Use correct column name 'gh_merged_at' ---
-            .where(PullRequest.gh_merged_at.isnot(None)) # Filter for merged PRs
+            .where(PullRequest.gh_merged_at.isnot(None))  # Filter for merged PRs
             # --- END FIX ---
             .group_by(Contributor.login)
             .order_by(desc("merged_pr_count"))
@@ -81,7 +80,9 @@ def run_analysis(
         )
 
         logger.info("Executing contributor PR count query...")
-        aggregation_results = db.execute(aggregation_stmt).mappings().all() # Fetch as dict-like
+        aggregation_results = (
+            db.execute(aggregation_stmt).mappings().all()
+        )  # Fetch as dict-like
 
         # Format results
         results = [dict(row) for row in aggregation_results]
@@ -90,7 +91,10 @@ def run_analysis(
 
     except Exception as e:
         logger.exception(f"Error during top_pr_contributors_v1 execution: {e}")
-        return {"result_type": "error", "data": {"error": type(e).__name__, "message": str(e)}}
+        return {
+            "result_type": "error",
+            "data": {"error": type(e).__name__, "message": str(e)},
+        }
     finally:
         if db:
             db.close()

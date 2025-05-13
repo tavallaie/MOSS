@@ -8,16 +8,17 @@ tracking the lineage and status of data discovery processes.
 """
 
 import logging
-import uuid # For handling UUID primary keys
+import uuid  # For handling UUID primary keys
 from typing import Optional, List
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from .base_repository import BaseRepository
-from backend.data.models import DiscoveryChain # The specific SQLAlchemy model
+from backend.data.models import DiscoveryChain  # The specific SQLAlchemy model
 
 logger = logging.getLogger(__name__)
+
 
 class DiscoveryChainRepository(BaseRepository[DiscoveryChain]):
     """
@@ -85,7 +86,10 @@ class DiscoveryChainRepository(BaseRepository[DiscoveryChain]):
                 .all()
             )
         except SQLAlchemyError as e:
-            logger.error(f"Database error finding DiscoveryChains for root {root_chain_id}: {e}", exc_info=True)
+            logger.error(
+                f"Database error finding DiscoveryChains for root {root_chain_id}: {e}",
+                exc_info=True,
+            )
             raise
 
     # Potential future methods:

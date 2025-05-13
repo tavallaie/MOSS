@@ -9,7 +9,7 @@ author's contribution to that work.
 
 import logging
 from typing import List, Optional, TYPE_CHECKING
-from sqlalchemy import String, Integer, Boolean, ForeignKey, Index
+from sqlalchemy import String, Boolean, ForeignKey, Index
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -22,9 +22,10 @@ from ..database import Base
 if TYPE_CHECKING:
     from .work import Work
     from .person import Person
-    from .affiliation import Affiliation # Required for the 'affiliations' relationship
+    from .affiliation import Affiliation  # Required for the 'affiliations' relationship
 
 logger = logging.getLogger(__name__)
+
 
 class Authorship(Base):
     """
@@ -45,6 +46,7 @@ class Authorship(Base):
         person: Relationship back to the Person object.
         affiliations: Relationship to associated Affiliation records for this specific authorship.
     """
+
     __tablename__ = "authorships"
 
     # --- Composite Primary Key and Foreign Keys ---
@@ -53,14 +55,14 @@ class Authorship(Base):
     work_id: Mapped[int] = mapped_column(
         # Define the foreign key constraint to the 'works' table.
         ForeignKey("works.id", ondelete="CASCADE"),
-        primary_key=True # This column is part of the composite primary key.
+        primary_key=True,  # This column is part of the composite primary key.
         # 'ondelete="CASCADE"' ensures that if a Work is deleted, all its Authorship
         # records (and consequently their Affiliations) are also deleted.
     )
     person_id: Mapped[int] = mapped_column(
         # Define the foreign key constraint to the 'persons' table.
         ForeignKey("persons.id", ondelete="CASCADE"),
-        primary_key=True # This column is also part of the composite primary key.
+        primary_key=True,  # This column is also part of the composite primary key.
         # 'ondelete="CASCADE"' ensures that if a Person is deleted, all their Authorship
         # records (and consequently their Affiliations) are also deleted.
     )
@@ -69,10 +71,10 @@ class Authorship(Base):
     # Optional fields providing more context about the specific authorship role.
     author_position: Mapped[Optional[str]] = mapped_column(
         String, nullable=True
-    ) # E.g., 'first', 'middle', 'last' - useful for author contribution analysis.
+    )  # E.g., 'first', 'middle', 'last' - useful for author contribution analysis.
     is_corresponding: Mapped[Optional[bool]] = mapped_column(
         Boolean, nullable=True
-    ) # Indicates if this author handled correspondence for the publication.
+    )  # Indicates if this author handled correspondence for the publication.
 
     # --- Relationships ---
     # Define bidirectional relationships for easier data access and navigation.
@@ -93,7 +95,7 @@ class Authorship(Base):
         # 'cascade="all, delete-orphan"' means that if an Authorship record is deleted,
         # all Affiliation records associated *only* with this Authorship will also be deleted.
         # Operations like adding an Affiliation via this Authorship object will be cascaded.
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     # --- Table Arguments ---
@@ -101,8 +103,8 @@ class Authorship(Base):
     # provides an index on (work_id, person_id), separate indexes on each column
     # can improve performance for queries filtering only by work_id or only by person_id.
     __table_args__ = (
-        Index('ix_authorships_work_id', 'work_id'),
-        Index('ix_authorships_person_id', 'person_id'),
+        Index("ix_authorships_work_id", "work_id"),
+        Index("ix_authorships_person_id", "person_id"),
     )
 
     def __repr__(self):

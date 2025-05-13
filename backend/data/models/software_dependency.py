@@ -9,13 +9,14 @@ software package dependency identified within a file in a tracked repository
 import logging
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import String, Integer, ForeignKey, Index, Boolean
+from sqlalchemy import String, ForeignKey, Index, Boolean
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 # Adjust the import path according to your project structure
 # Assuming Base is defined in backend.data.database
 from backend.data.database import Base
+
 # Assuming BaseModel provides id, created_at, updated_at
 from .base import BaseModel
 
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     # from .discovery_chain import DiscoveryChain
 
 logger = logging.getLogger(__name__)
+
 
 class SoftwareDependency(BaseModel, Base):
     """
@@ -46,14 +48,17 @@ class SoftwareDependency(BaseModel, Base):
         is_dev_dependency: Flag indicating if this is marked as a development dependency.
         repository: Relationship back to the parent Repository object.
     """
+
     __tablename__ = "software_dependencies"
 
     # --- Foreign Key ---
     # Links this dependency record back to the repository it was found in.
     repository_id: Mapped[int] = mapped_column(
-        ForeignKey("repositories.id", ondelete="CASCADE"), # Cascade delete if repo is removed
-        index=True, # Index for efficient lookup of dependencies by repository
-        nullable=False
+        ForeignKey(
+            "repositories.id", ondelete="CASCADE"
+        ),  # Cascade delete if repo is removed
+        index=True,  # Index for efficient lookup of dependencies by repository
+        nullable=False,
     )
 
     # --- Dependency Details ---
@@ -81,7 +86,9 @@ class SoftwareDependency(BaseModel, Base):
     # Flag indicating if the dependency is designated for development purposes only
     # (e.g., in 'devDependencies' in package.json). Indexed for filtering.
     # Nullable if the concept doesn't apply or wasn't determined.
-    is_dev_dependency: Mapped[Optional[bool]] = mapped_column(Boolean, index=True, nullable=True)
+    is_dev_dependency: Mapped[Optional[bool]] = mapped_column(
+        Boolean, index=True, nullable=True
+    )
 
     # --- Relationships ---
     # Define relationship(s) for navigation.
@@ -95,20 +102,24 @@ class SoftwareDependency(BaseModel, Base):
     # Define explicit indexes to optimize common query patterns.
     __table_args__ = (
         # Index on repository_id (already indexed via column def, but explicit).
-        Index('ix_software_dependencies_repo_id', 'repository_id'),
+        Index("ix_software_dependencies_repo_id", "repository_id"),
         # Index on dependency_name for finding usage of specific packages across repos.
-        Index('ix_software_dependencies_name', 'dependency_name'),
+        Index("ix_software_dependencies_name", "dependency_name"),
         # Index on dependency_type for filtering by ecosystem.
-        Index('ix_software_dependencies_type', 'dependency_type'),
+        Index("ix_software_dependencies_type", "dependency_type"),
         # Index on is_dev_dependency flag for distinguishing runtime vs dev dependencies.
-        Index('ix_software_dependencies_is_dev', 'is_dev_dependency'),
+        Index("ix_software_dependencies_is_dev", "is_dev_dependency"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
         # Safely access 'id' which comes from BaseModel
-        obj_id = getattr(self, 'id', None)
-        version_str = f", version='{self.version_constraint}'" if self.version_constraint else ""
+        obj_id = getattr(self, "id", None)
+        version_str = (
+            f", version='{self.version_constraint}'" if self.version_constraint else ""
+        )
         dev_flag = ", dev" if self.is_dev_dependency else ""
-        return (f"<SoftwareDependency(id={obj_id}, repo={self.repository_id}, "
-                f"name='{self.dependency_name}', type='{self.dependency_type}'{version_str}{dev_flag})>")
+        return (
+            f"<SoftwareDependency(id={obj_id}, repo={self.repository_id}, "
+            f"name='{self.dependency_name}', type='{self.dependency_type}'{version_str}{dev_flag})>"
+        )

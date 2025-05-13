@@ -7,12 +7,10 @@ along with metadata about how this link was determined (e.g., algorithm, confide
 """
 
 import logging
-from datetime import datetime
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
-from sqlalchemy import (
-    String, Integer, Float, DateTime, ForeignKey, Index, PrimaryKeyConstraint, func
-)
+from sqlalchemy import String, Float, ForeignKey, Index, PrimaryKeyConstraint
+
 # Import JSONB type for storing structured evidence/parameters in PostgreSQL
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -20,8 +18,11 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 # Assuming Base is correctly defined elsewhere
 # Adjust import path as necessary
 from ..database import Base
+
 # Import custom timestamp types for consistency
-from .types import timestamp_created # Using created timestamp logic for calculation time
+from .types import (
+    timestamp_created,
+)  # Using created timestamp logic for calculation time
 
 # Use TYPE_CHECKING to prevent circular imports for type hints
 if TYPE_CHECKING:
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from .institution import Institution
 
 logger = logging.getLogger(__name__)
+
 
 class RepositoryInstitutionAffiliation(Base):
     """
@@ -55,6 +57,7 @@ class RepositoryInstitutionAffiliation(Base):
         repository: Relationship back to the Repository object.
         institution: Relationship back to the Institution object.
     """
+
     __tablename__ = "repository_institution_affiliations"
 
     # --- Composite Primary Key Components ---
@@ -62,12 +65,14 @@ class RepositoryInstitutionAffiliation(Base):
 
     # Foreign key to the Repository being linked.
     repository_id: Mapped[int] = mapped_column(
-        ForeignKey("repositories.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("repositories.id", ondelete="CASCADE"),
+        primary_key=True,
         # `ondelete="CASCADE"`: If the repository is deleted, associated affiliation results are removed.
     )
     # Foreign key to the Institution being linked.
     institution_id: Mapped[int] = mapped_column(
-        ForeignKey("institutions.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("institutions.id", ondelete="CASCADE"),
+        primary_key=True,
         # `ondelete="CASCADE"`: If the institution is deleted, associated affiliation results are removed.
     )
     # Identifier for the affiliation prediction algorithm used.
@@ -85,7 +90,9 @@ class RepositoryInstitutionAffiliation(Base):
     evidence: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     # Records the parameters used by the algorithm for this specific run.
     # Example: {'threshold': 0.7, 'use_email_heuristics': True}
-    parameters_used: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    parameters_used: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB, nullable=True
+    )
 
     # --- Timestamping ---
     # Indicates when this specific affiliation record was created/calculated.
@@ -106,16 +113,20 @@ class RepositoryInstitutionAffiliation(Base):
     # Define the composite primary key constraint explicitly and add indexes.
     __table_args__ = (
         # Explicit definition of the composite primary key constraint.
-        PrimaryKeyConstraint('repository_id', 'institution_id', 'algorithm_name', 'algorithm_version'),
+        PrimaryKeyConstraint(
+            "repository_id", "institution_id", "algorithm_name", "algorithm_version"
+        ),
         # Indexes on individual foreign key columns and algorithm name facilitate efficient
         # lookups, e.g., finding all affiliations for a repo, or all results from a specific algorithm.
-        Index('ix_repo_inst_affil_repo_id', 'repository_id'),
-        Index('ix_repo_inst_affil_inst_id', 'institution_id'),
-        Index('ix_repo_inst_affil_algo_name', 'algorithm_name'),
+        Index("ix_repo_inst_affil_repo_id", "repository_id"),
+        Index("ix_repo_inst_affil_inst_id", "institution_id"),
+        Index("ix_repo_inst_affil_algo_name", "algorithm_name"),
     )
 
     def __repr__(self):
         """Provides a concise string representation for debugging and logging."""
-        return (f"<RepoInstAffil(repo={self.repository_id}, inst={self.institution_id}, "
-                f"algo='{self.algorithm_name}_v{self.algorithm_version}', "
-                f"score={self.confidence_score:.2f})>") # Format score for readability
+        return (
+            f"<RepoInstAffil(repo={self.repository_id}, inst={self.institution_id}, "
+            f"algo='{self.algorithm_name}_v{self.algorithm_version}', "
+            f"score={self.confidence_score:.2f})>"
+        )  # Format score for readability

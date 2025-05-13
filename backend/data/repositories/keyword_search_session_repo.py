@@ -8,14 +8,16 @@ representing a specific instance of a keyword-based repository search.
 """
 
 import logging
+
 # from typing import Optional, List # Optional/List not currently used, uncomment if needed
 from sqlalchemy.orm import Session
 # from sqlalchemy.exc import SQLAlchemyError # Not used directly if only using BaseRepository methods
 
 from .base_repository import BaseRepository
-from backend.data.models import KeywordSearchSession # The specific model
+from backend.data.models import KeywordSearchSession  # The specific model
 
 logger = logging.getLogger(__name__)
+
 
 class KeywordSearchSessionRepository(BaseRepository[KeywordSearchSession]):
     """

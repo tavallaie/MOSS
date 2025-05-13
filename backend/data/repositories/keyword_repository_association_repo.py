@@ -8,7 +8,7 @@ model, which links keyword search sessions to repositories found during those se
 """
 
 import logging
-from typing import Optional, Dict, Any, List, Tuple # Import Tuple for composite key get
+from typing import Optional, Dict, Any, List  # Import Tuple for composite key get
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,6 +20,7 @@ from backend.data.models import KeywordRepositoryAssociation
 
 logger = logging.getLogger(__name__)
 
+
 class KeywordRepositoryAssociationRepository:
     """
     Repository for managing KeywordRepositoryAssociation link records.
@@ -29,6 +30,7 @@ class KeywordRepositoryAssociationRepository:
     primary key (session_id, repository_id), it implements its own methods
     instead of inheriting directly from BaseRepository.
     """
+
     def __init__(self, db: Session):
         """
         Initializes the KeywordRepositoryAssociationRepository.
@@ -44,7 +46,7 @@ class KeywordRepositoryAssociationRepository:
         *,
         session_id: int,
         repository_id: int,
-        match_details: Optional[Dict[str, Any]] = None
+        match_details: Optional[Dict[str, Any]] = None,
     ) -> KeywordRepositoryAssociation:
         """
         Creates a new association record between a search session and a repository.
@@ -71,30 +73,34 @@ class KeywordRepositoryAssociationRepository:
             SQLAlchemyError: If adding or flushing the object to the database fails
                              (e.g., due to constraint violations).
         """
-        logger.debug(f"Preparing to create KeywordRepositoryAssociation for session {session_id}, repo {repository_id}")
+        logger.debug(
+            f"Preparing to create KeywordRepositoryAssociation for session {session_id}, repo {repository_id}"
+        )
         # Create the association object instance.
         db_obj = self.model(
             keyword_search_session_id=session_id,
             repository_id=repository_id,
-            match_details=match_details # Store provided JSON details.
+            match_details=match_details,  # Store provided JSON details.
         )
         try:
-            self.db.add(db_obj) # Add the new association to the session.
+            self.db.add(db_obj)  # Add the new association to the session.
             # Flush the session to send the INSERT statement. This helps catch
             # potential integrity errors (like duplicate primary keys) early.
             self.db.flush()
             # No refresh needed here typically, as this model likely doesn't have
             # database-generated defaults beyond the primary key components provided.
-            logger.info(f"Successfully created and flushed KeywordRepositoryAssociation for session {session_id}, repo {repository_id}")
+            logger.info(
+                f"Successfully created and flushed KeywordRepositoryAssociation for session {session_id}, repo {repository_id}"
+            )
             return db_obj
         except SQLAlchemyError as e:
             # Log the specific error during creation/flush.
             logger.error(
                 f"Database error creating KeywordRepositoryAssociation for session {session_id}, repo {repository_id}: {e}",
-                exc_info=True
+                exc_info=True,
             )
             # Rollback should be handled by the service layer or API endpoint managing the overall transaction.
-            raise # Re-raise the error for the caller.
+            raise  # Re-raise the error for the caller.
 
     def get_by_session_and_repo_id(
         self, *, session_id: int, repository_id: int
@@ -114,7 +120,9 @@ class KeywordRepositoryAssociationRepository:
         Raises:
             SQLAlchemyError: If a database error occurs during the lookup.
         """
-        logger.debug(f"Getting KeywordRepositoryAssociation by composite key: session {session_id}, repo {repository_id}")
+        logger.debug(
+            f"Getting KeywordRepositoryAssociation by composite key: session {session_id}, repo {repository_id}"
+        )
         try:
             # For composite keys, Session.get requires a tuple of the key values in the correct order.
             composite_key = (session_id, repository_id)
@@ -122,9 +130,9 @@ class KeywordRepositoryAssociationRepository:
         except SQLAlchemyError as e:
             logger.error(
                 f"Database error getting KeywordRepositoryAssociation for session {session_id}, repo {repository_id}: {e}",
-                exc_info=True
+                exc_info=True,
             )
-            raise # Re-raise for higher-level handling.
+            raise  # Re-raise for higher-level handling.
 
     def find_by_session_id(
         self, *, session_id: int
@@ -143,7 +151,9 @@ class KeywordRepositoryAssociationRepository:
         Raises:
             SQLAlchemyError: If a database error occurs during the query.
         """
-        logger.debug(f"Finding all KeywordRepositoryAssociations for session_id {session_id}")
+        logger.debug(
+            f"Finding all KeywordRepositoryAssociations for session_id {session_id}"
+        )
         try:
             # Query the association model, filtering by the session ID part of the composite key.
             return (
@@ -154,9 +164,9 @@ class KeywordRepositoryAssociationRepository:
         except SQLAlchemyError as e:
             logger.error(
                 f"Database error finding KeywordRepositoryAssociations for session {session_id}: {e}",
-                exc_info=True
+                exc_info=True,
             )
-            raise # Re-raise for caller to handle.
+            raise  # Re-raise for caller to handle.
 
     # A potential future method:
     # def find_by_repository_id(self, *, repository_id: int) -> List[KeywordRepositoryAssociation]:
